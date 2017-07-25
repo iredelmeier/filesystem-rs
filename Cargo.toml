@@ -1,0 +1,31 @@
+[package]
+name = "filesystem"
+version = "0.1.0"
+authors = ["Isobel Redelmeier <iredelmeier@gmail.com>"]
+license = "MIT"
+
+[lib]
+bench = false
+doctest = false
+test = false
+
+[[test]]
+name = "fs"
+required-features = ["fake", "temp"]
+
+[features]
+default = ["fake", "temp"]
+
+fake = []
+mock = ["pseudo"]
+temp = ["rand", "tempdir"]
+testing = ["mock", "fake"]
+
+[dependencies]
+pseudo = { version = "^0.0.3", optional = true }
+rand = { version = "^0.3", optional = true }
+tempdir = { version = "^0.3", optional = true }
+
+[dev-dependencies]
+pseudo = "^0.0.3"
+tempdir = "^0.3"
