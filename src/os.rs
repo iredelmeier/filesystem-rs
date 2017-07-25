@@ -1,5 +1,5 @@
 use std::{env, fs};
-use std::fs::{File, OpenOptions};
+use std::fs::{File, OpenOptions, Permissions};
 use std::io::{Read, Result, Write};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -96,15 +96,11 @@ impl FileSystem for OsFileSystem {
     }
 
     fn readonly<P: AsRef<Path>>(&self, path: P) -> Result<bool> {
-        let metadata = fs::metadata(path)?;
-        let permissions = metadata.permissions();
-
-        Ok(permissions.readonly())
+        permissions(path.as_ref()).map(|p| p.readonly())
     }
 
     fn set_readonly<P: AsRef<Path>>(&self, path: P, readonly: bool) -> Result<()> {
-        let metadata = fs::metadata(path.as_ref())?;
-        let mut permissions = metadata.permissions();
+        let mut permissions = permissions(path.as_ref())?;
 
         permissions.set_readonly(readonly);
 
@@ -115,15 +111,11 @@ impl FileSystem for OsFileSystem {
 #[cfg(unix)]
 impl UnixFileSystem for OsFileSystem {
     fn mode<P: AsRef<Path>>(&self, path: P) -> Result<u32> {
-        let metadata = fs::metadata(path)?;
-        let permissions = metadata.permissions();
-
-        Ok(permissions.mode())
+        permissions(path.as_ref()).map(|p| p.mode())
     }
 
     fn set_mode<P: AsRef<Path>>(&self, path: P, mode: u32) -> Result<()> {
-        let metadata = fs::metadata(path.as_ref())?;
-        let mut permissions = metadata.permissions();
+        let mut permissions = permissions(path.as_ref())?;
 
         permissions.set_mode(mode);
 
@@ -138,4 +130,10 @@ impl TempFileSystem for OsFileSystem {
     fn temp_dir<S: AsRef<str>>(&self, prefix: S) -> Result<Self::TempDir> {
         tempdir::TempDir::new(prefix.as_ref()).map(OsTempDir)
     }
+}
+
+fn permissions(path: &Path) -> Result<Permissions> {
+    let metadata = fs::metadata(path)?;
+
+    Ok(metadata.permissions())
 }
