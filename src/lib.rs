@@ -5,7 +5,6 @@ extern crate rand;
 #[cfg(feature = "temp")]
 extern crate tempdir;
 
-use std::fmt::Debug;
 use std::io::Result;
 use std::path::{Path, PathBuf};
 
@@ -23,15 +22,7 @@ mod fake;
 mod mock;
 mod os;
 
-#[cfg(feature = "temp")]
-pub trait TempDir {
-    fn path(&self) -> &Path;
-}
-
-pub trait FileSystem: Clone + Debug {
-    #[cfg(feature = "temp")]
-    type TempDir: TempDir;
-
+pub trait FileSystem {
     fn current_dir(&self) -> Result<PathBuf>;
     fn set_current_dir<P: AsRef<Path>>(&self, path: P) -> Result<()>;
 
@@ -53,7 +44,16 @@ pub trait FileSystem: Clone + Debug {
 
     fn readonly<P: AsRef<Path>>(&self, path: P) -> Result<bool>;
     fn set_readonly<P: AsRef<Path>>(&self, path: P, readonly: bool) -> Result<()>;
+}
 
-    #[cfg(feature = "temp")]
+#[cfg(feature = "temp")]
+pub trait TempDir {
+    fn path(&self) -> &Path;
+}
+
+#[cfg(feature = "temp")]
+pub trait TempFileSystem {
+    type TempDir: TempDir;
+
     fn temp_dir<S: AsRef<str>>(&self, prefix: S) -> Result<Self::TempDir>;
 }

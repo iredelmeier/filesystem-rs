@@ -3,7 +3,9 @@ use std::io::Result;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use {FileSystem, TempDir};
+use FileSystem;
+#[cfg(feature = "temp")]
+use {TempDir, TempFileSystem};
 
 #[cfg(feature = "temp")]
 pub use self::tempdir::FakeTempDir;
@@ -30,9 +32,6 @@ impl FakeFileSystem {
 }
 
 impl FileSystem for FakeFileSystem {
-    #[cfg(feature = "temp")]
-    type TempDir = FakeTempDir;
-
     fn current_dir(&self) -> Result<PathBuf> {
         self.registry.lock().unwrap().current_dir()
     }
@@ -114,8 +113,12 @@ impl FileSystem for FakeFileSystem {
         let path = expand_path(path, registry.current_dir());
         registry.set_readonly(&path, readonly)
     }
+}
 
-    #[cfg(feature = "temp")]
+#[cfg(feature = "temp")]
+impl TempFileSystem for FakeFileSystem {
+    type TempDir = FakeTempDir;
+
     fn temp_dir<S: AsRef<str>>(&self, prefix: S) -> Result<Self::TempDir> {
         let base = env::temp_dir();
         let dir = FakeTempDir::new(Arc::downgrade(&self.registry), &base, prefix.as_ref());

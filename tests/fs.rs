@@ -3,7 +3,7 @@ extern crate filesystem;
 use std::io::ErrorKind;
 use std::path::Path;
 
-use filesystem::{FakeFileSystem, FileSystem, OsFileSystem, TempDir};
+use filesystem::{FakeFileSystem, FileSystem, OsFileSystem, TempDir, TempFileSystem};
 
 macro_rules! make_test {
     ($test:ident, $fs:expr) => {
@@ -415,7 +415,7 @@ fn set_readonly_fails_if_path_does_not_exist<T: FileSystem>(fs: &T, parent: &Pat
     assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
 }
 
-fn temp_dir_creates_tempdir<T: FileSystem>(fs: &T, _: &Path) {
+fn temp_dir_creates_tempdir<T: FileSystem + TempFileSystem>(fs: &T, _: &Path) {
     let path = {
         let result = fs.temp_dir("test");
 
@@ -432,7 +432,7 @@ fn temp_dir_creates_tempdir<T: FileSystem>(fs: &T, _: &Path) {
     assert!(fs.is_dir(path.parent().unwrap()));
 }
 
-fn temp_dir_creates_unique_dir<T: FileSystem>(fs: &T, _: &Path) {
+fn temp_dir_creates_unique_dir<T: FileSystem + TempFileSystem>(fs: &T, _: &Path) {
     let first = fs.temp_dir("test").unwrap();
     let second = fs.temp_dir("test").unwrap();
 

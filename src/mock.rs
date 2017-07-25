@@ -5,12 +5,6 @@ use std::path::{Path, PathBuf};
 use pseudo::Mock;
 
 use FileSystem;
-#[cfg(feature = "temp")]
-use TempDir;
-
-#[cfg(feature = "temp")]
-#[derive(Debug, Clone)]
-pub struct MockTempDir(pub PathBuf);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FakeError {
@@ -30,12 +24,6 @@ impl From<Error> for FakeError {
 impl From<FakeError> for Error {
     fn from(err: FakeError) -> Self {
         Error::new(err.kind, err.description)
-    }
-}
-#[cfg(feature = "temp")]
-impl TempDir for MockTempDir {
-    fn path(&self) -> &Path {
-        self.0.as_path()
     }
 }
 
@@ -58,9 +46,6 @@ pub struct MockFileSystem {
 
     pub readonly: Mock<(PathBuf), Result<bool, FakeError>>,
     pub set_readonly: Mock<(PathBuf, bool), Result<(), FakeError>>,
-
-    #[cfg(feature = "temp")]
-    pub temp_dir: Mock<String, Result<MockTempDir, FakeError>>,
 }
 
 impl MockFileSystem {
@@ -83,16 +68,11 @@ impl MockFileSystem {
 
             readonly: Mock::new(Ok(false)),
             set_readonly: Mock::new(Ok(())),
-
-            temp_dir: Mock::new(Ok(MockTempDir(PathBuf::new()))),
         }
     }
 }
 
 impl FileSystem for MockFileSystem {
-    #[cfg(feature = "temp")]
-    type TempDir = MockTempDir;
-
     fn current_dir(&self) -> Result<PathBuf, Error> {
         self.current_dir.call(()).map_err(Error::from)
     }
@@ -168,13 +148,6 @@ impl FileSystem for MockFileSystem {
     fn set_readonly<P: AsRef<Path>>(&self, path: P, readonly: bool) -> Result<(), Error> {
         self.set_readonly
             .call((path.as_ref().to_path_buf(), readonly))
-            .map_err(Error::from)
-    }
-
-    #[cfg(feature = "temp")]
-    fn temp_dir<S: AsRef<str>>(&self, prefix: S) -> Result<Self::TempDir, Error> {
-        self.temp_dir
-            .call(prefix.as_ref().to_string())
             .map_err(Error::from)
     }
 }

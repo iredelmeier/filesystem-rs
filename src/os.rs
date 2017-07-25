@@ -8,7 +8,7 @@ use tempdir;
 
 use FileSystem;
 #[cfg(feature = "temp")]
-use TempDir;
+use {TempDir, TempFileSystem};
 
 #[cfg(feature = "temp")]
 #[derive(Debug)]
@@ -31,9 +31,6 @@ impl OsFileSystem {
 }
 
 impl FileSystem for OsFileSystem {
-    #[cfg(feature = "temp")]
-    type TempDir = OsTempDir;
-
     fn current_dir(&self) -> Result<PathBuf> {
         env::current_dir()
     }
@@ -109,8 +106,12 @@ impl FileSystem for OsFileSystem {
         permissions.set_readonly(readonly);
         file.set_permissions(permissions)
     }
+}
 
-    #[cfg(feature = "temp")]
+#[cfg(feature = "temp")]
+impl TempFileSystem for OsFileSystem {
+    type TempDir = OsTempDir;
+
     fn temp_dir<S: AsRef<str>>(&self, prefix: S) -> Result<Self::TempDir> {
         tempdir::TempDir::new(prefix.as_ref()).map(OsTempDir)
     }
