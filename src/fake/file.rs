@@ -4,14 +4,14 @@ use std::path::PathBuf;
 #[derive(Debug, Clone)]
 pub struct File {
     pub contents: Vec<u8>,
-    pub readonly: bool,
+    pub mode: u32,
 }
 
 impl File {
     pub fn new(contents: Vec<u8>) -> Self {
         File {
             contents: contents,
-            readonly: false,
+            mode: 0o644,
         }
     }
 }
@@ -19,14 +19,14 @@ impl File {
 #[derive(Debug, Clone, Default)]
 pub struct Dir {
     pub children: BTreeSet<PathBuf>,
-    pub readonly: bool,
+    pub mode: u32,
 }
 
 impl Dir {
     pub fn new() -> Self {
         Dir {
             children: BTreeSet::new(),
-            readonly: false,
+            mode: 0o644,
         }
     }
 }

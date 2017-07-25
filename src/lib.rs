@@ -46,6 +46,12 @@ pub trait FileSystem {
     fn set_readonly<P: AsRef<Path>>(&self, path: P, readonly: bool) -> Result<()>;
 }
 
+#[cfg(unix)]
+pub trait UnixFileSystem {
+    fn mode<P: AsRef<Path>>(&self, path: P) -> Result<u32>;
+    fn set_mode<P: AsRef<Path>>(&self, path: P, mode: u32) -> Result<()>;
+}
+
 #[cfg(feature = "temp")]
 pub trait TempDir {
     fn path(&self) -> &Path;

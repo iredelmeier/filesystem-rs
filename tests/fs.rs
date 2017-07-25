@@ -4,6 +4,8 @@ use std::io::ErrorKind;
 use std::path::Path;
 
 use filesystem::{FakeFileSystem, FileSystem, OsFileSystem, TempDir, TempFileSystem};
+#[cfg(unix)]
+use filesystem::UnixFileSystem;
 
 macro_rules! make_test {
     ($test:ident, $fs:expr) => {
@@ -65,6 +67,16 @@ macro_rules! test_fs {
             make_test!(set_readonly_toggles_write_permission_of_file, $fs);
             make_test!(set_readonly_toggles_write_permission_of_dir, $fs);
             make_test!(set_readonly_fails_if_path_does_not_exist, $fs);
+
+            #[cfg(unix)]
+            make_test!(mode_returns_permissions, $fs);
+            #[cfg(unix)]
+            make_test!(mode_fails_if_path_does_not_exist, $fs);
+
+            #[cfg(unix)]
+            make_test!(set_mode_sets_permissions, $fs);
+            #[cfg(unix)]
+            make_test!(set_mode_fails_if_path_does_not_exist, $fs);
 
             make_test!(temp_dir_creates_tempdir, $fs);
             make_test!(temp_dir_creates_unique_dir, $fs);
@@ -410,6 +422,99 @@ fn set_readonly_fails_if_path_does_not_exist<T: FileSystem>(fs: &T, parent: &Pat
     assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
 
     let result = fs.set_readonly(parent.join("does_not_exist"), true);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
+}
+
+#[cfg(unix)]
+fn mode_returns_permissions<T: FileSystem + UnixFileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("file");
+
+    fs.create_file(&path, "").unwrap();
+    fs.set_mode(&path, 0o644).unwrap();
+
+    let result = fs.mode(&path);
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), 0o644);
+
+    fs.set_mode(&path, 0o600).unwrap();
+
+    let result = fs.mode(&path);
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), 0o600);
+
+    fs.set_readonly(&path, true).unwrap();
+
+    let result = fs.mode(&path);
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), 0o400);
+}
+
+#[cfg(unix)]
+fn mode_fails_if_path_does_not_exist<T: UnixFileSystem>(fs: &T, parent: &Path) {
+    let result = fs.mode(parent.join("does_not_exist"));
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
+}
+
+#[cfg(unix)]
+fn set_mode_sets_permissions<T: FileSystem + UnixFileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("file");
+
+    fs.create_file(&path, "").unwrap();
+
+    let result = fs.set_mode(&path, 0o000);
+
+    assert!(result.is_ok());
+
+    let readonly_result = fs.readonly(&path);
+
+    assert!(readonly_result.is_ok());
+    assert!(readonly_result.unwrap());
+
+    let read_result = fs.read_file(&path);
+    let write_result = fs.write_file(&path, "should not be allowed");
+
+    assert!(read_result.is_err());
+    assert!(write_result.is_err());
+    assert_eq!(read_result.unwrap_err().kind(), ErrorKind::PermissionDenied);
+    assert_eq!(write_result.unwrap_err().kind(),
+               ErrorKind::PermissionDenied);
+
+    let result = fs.set_mode(&path, 0o200);
+
+    assert!(result.is_ok());
+
+    let read_result = fs.read_file(&path);
+    let write_result = fs.write_file(&path, "should be allowed");
+
+    assert!(read_result.is_err());
+    assert!(write_result.is_ok());
+    assert_eq!(read_result.unwrap_err().kind(), ErrorKind::PermissionDenied);
+
+    let readonly_result = fs.readonly(&path);
+
+    assert!(readonly_result.is_ok());
+    assert!(!readonly_result.unwrap());
+
+    let result = fs.set_mode(&path, 0o644);
+
+    assert!(result.is_ok());
+
+    let readonly_result = fs.readonly(&path);
+
+    assert!(readonly_result.is_ok());
+    assert!(!readonly_result.unwrap());
+}
+
+#[cfg(unix)]
+fn set_mode_fails_if_path_does_not_exist<T: UnixFileSystem>(fs: &T, parent: &Path) {
+    let result = fs.set_mode(parent.join("does_not_exist"), 0o644);
 
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);

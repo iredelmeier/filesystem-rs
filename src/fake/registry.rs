@@ -122,14 +122,17 @@ impl Registry {
     }
 
     pub fn read_file(&self, path: &Path) -> Result<Vec<u8>> {
-        self.get_file(path)
-            .map(|f| f.contents.clone())
+        match self.get_file(path) {
+            Ok(f) if f.mode & 0o444 != 0 => Ok(f.contents.clone()),
+            Ok(_) => Err(create_error(ErrorKind::PermissionDenied)),
+            Err(err) => Err(err),
+        }
     }
 
     pub fn readonly(&self, path: &Path) -> Result<bool> {
         match self.files.get(path) {
-            Some(&FakeFile::File(ref f)) => Ok(f.readonly),
-            Some(&FakeFile::Dir(ref d)) => Ok(d.readonly),
+            Some(&FakeFile::File(ref f)) => Ok(f.mode & 0o222 == 0),
+            Some(&FakeFile::Dir(ref d)) => Ok(d.mode & 0o222 == 0),
             None => Err(create_error(ErrorKind::NotFound)),
         }
     }
@@ -137,11 +140,43 @@ impl Registry {
     pub fn set_readonly(&mut self, path: &Path, readonly: bool) -> Result<()> {
         match self.files.get_mut(path) {
             Some(&mut FakeFile::File(ref mut f)) => {
-                f.readonly = readonly;
+                if readonly {
+                    f.mode &= !0o222
+                } else {
+                    f.mode |= 0o222
+                };
+
                 Ok(())
             }
             Some(&mut FakeFile::Dir(ref mut d)) => {
-                d.readonly = readonly;
+                if readonly {
+                    d.mode &= !0o222
+                } else {
+                    d.mode |= 0o222
+                };
+
+                Ok(())
+            }
+            None => Err(create_error(ErrorKind::NotFound)),
+        }
+    }
+
+    pub fn mode(&self, path: &Path) -> Result<u32> {
+        match self.files.get(path) {
+            Some(&FakeFile::File(ref f)) => Ok(f.mode),
+            Some(&FakeFile::Dir(ref d)) => Ok(d.mode),
+            None => Err(create_error(ErrorKind::NotFound)),
+        }
+    }
+
+    pub fn set_mode(&mut self, path: &Path, mode: u32) -> Result<()> {
+        match self.files.get_mut(path) {
+            Some(&mut FakeFile::File(ref mut f)) => {
+                f.mode = mode;
+                Ok(())
+            }
+            Some(&mut FakeFile::Dir(ref mut d)) => {
+                d.mode = mode;
                 Ok(())
             }
             None => Err(create_error(ErrorKind::NotFound)),
@@ -159,7 +194,7 @@ impl Registry {
     fn get_dir_mut(&mut self, path: &Path) -> Result<&mut Dir> {
         match self.files.get_mut(path) {
             Some(&mut FakeFile::Dir(ref mut dir)) => {
-                if dir.readonly {
+                if dir.mode & 0o222 == 0 {
                     Err(create_error(ErrorKind::PermissionDenied))
                 } else {
                     Ok(dir)
@@ -181,7 +216,7 @@ impl Registry {
     fn get_file_mut(&mut self, path: &Path) -> Result<&mut File> {
         match self.files.get_mut(path) {
             Some(&mut FakeFile::File(ref mut file)) => {
-                if file.readonly {
+                if file.mode & 0o222 == 0 {
                     Err(create_error(ErrorKind::PermissionDenied))
                 } else {
                     Ok(file)

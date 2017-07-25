@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use FileSystem;
+#[cfg(unix)]
+use UnixFileSystem;
 #[cfg(feature = "temp")]
 use {TempDir, TempFileSystem};
 
@@ -112,6 +114,21 @@ impl FileSystem for FakeFileSystem {
         let mut registry = self.registry.lock().unwrap();
         let path = expand_path(path, registry.current_dir());
         registry.set_readonly(&path, readonly)
+    }
+}
+
+#[cfg(unix)]
+impl UnixFileSystem for FakeFileSystem {
+    fn mode<P: AsRef<Path>>(&self, path: P) -> Result<u32> {
+        let registry = self.registry.lock().unwrap();
+        let path = expand_path(path, registry.current_dir());
+        registry.mode(&path)
+    }
+
+    fn set_mode<P: AsRef<Path>>(&self, path: P, mode: u32) -> Result<()> {
+        let mut registry = self.registry.lock().unwrap();
+        let path = expand_path(path, registry.current_dir());
+        registry.set_mode(&path, mode)
     }
 }
 

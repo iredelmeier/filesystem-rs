@@ -1,12 +1,16 @@
 use std::{env, fs};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Result, Write};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 #[cfg(feature = "temp")]
 use tempdir;
 
 use FileSystem;
+#[cfg(unix)]
+use UnixFileSystem;
 #[cfg(feature = "temp")]
 use {TempDir, TempFileSystem};
 
@@ -99,12 +103,31 @@ impl FileSystem for OsFileSystem {
     }
 
     fn set_readonly<P: AsRef<Path>>(&self, path: P, readonly: bool) -> Result<()> {
-        let file = File::open(path)?;
-        let metadata = file.metadata()?;
+        let metadata = fs::metadata(path.as_ref())?;
         let mut permissions = metadata.permissions();
 
         permissions.set_readonly(readonly);
-        file.set_permissions(permissions)
+
+        fs::set_permissions(path, permissions)
+    }
+}
+
+#[cfg(unix)]
+impl UnixFileSystem for OsFileSystem {
+    fn mode<P: AsRef<Path>>(&self, path: P) -> Result<u32> {
+        let metadata = fs::metadata(path)?;
+        let permissions = metadata.permissions();
+
+        Ok(permissions.mode())
+    }
+
+    fn set_mode<P: AsRef<Path>>(&self, path: P, mode: u32) -> Result<()> {
+        let metadata = fs::metadata(path.as_ref())?;
+        let mut permissions = metadata.permissions();
+
+        permissions.set_mode(mode);
+
+        fs::set_permissions(path, permissions)
     }
 }
 
