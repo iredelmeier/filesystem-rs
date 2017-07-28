@@ -1,7 +1,7 @@
 use std::env;
 use std::io::Result;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use FileSystem;
 #[cfg(unix)]
@@ -31,104 +31,111 @@ impl FakeFileSystem {
 
         FakeFileSystem { registry: Arc::new(Mutex::new(registry)) }
     }
+
+    fn apply<F, T>(&self, path: &Path, f: F) -> T
+        where F: FnOnce(&MutexGuard<Registry>, &Path) -> T
+    {
+        let registry = self.registry.lock().unwrap();
+        let storage;
+        let path = if path.is_relative() {
+            storage = registry.current_dir()
+                .unwrap_or_else(|_| PathBuf::from("/"))
+                .join(path);
+            &storage
+        } else {
+            path
+        };
+
+        f(&registry, path)
+    }
+
+    fn apply_mut<F, T>(&self, path: &Path, mut f: F) -> T
+        where F: FnMut(&mut MutexGuard<Registry>, &Path) -> T
+    {
+        let mut registry = self.registry.lock().unwrap();
+        let storage;
+        let path = if path.is_relative() {
+            storage = registry.current_dir()
+                .unwrap_or_else(|_| PathBuf::from("/"))
+                .join(path);
+            &storage
+        } else {
+            path
+        };
+
+        f(&mut registry, path)
+    }
 }
 
 impl FileSystem for FakeFileSystem {
     fn current_dir(&self) -> Result<PathBuf> {
-        self.registry.lock().unwrap().current_dir()
+        let registry = self.registry.lock().unwrap();
+        registry.current_dir()
     }
 
     fn set_current_dir<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let mut registry = self.registry.lock().unwrap();
-        let path = expand_path(path, registry.current_dir());
-        registry.set_current_dir(path)
+        self.apply_mut(path.as_ref(), |mut r, p| r.set_current_dir(p.to_path_buf()))
     }
 
     fn is_dir<P: AsRef<Path>>(&self, path: P) -> bool {
-        let registry = self.registry.lock().unwrap();
-        let path = expand_path(path, registry.current_dir());
-        registry.is_dir(&path)
+        self.apply(path.as_ref(), |r, p| r.is_dir(p))
     }
 
     fn is_file<P: AsRef<Path>>(&self, path: P) -> bool {
-        let registry = self.registry.lock().unwrap();
-        let path = expand_path(path, registry.current_dir());
-        registry.is_file(&path)
+        self.apply(path.as_ref(), |r, p| r.is_file(p))
     }
 
     fn create_dir<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let mut registry = self.registry.lock().unwrap();
-        let path = expand_path(path, registry.current_dir());
-        registry.create_dir(&path)
+        self.apply_mut(path.as_ref(), |r, p| r.create_dir(p))
     }
 
     fn create_dir_all<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let mut registry = self.registry.lock().unwrap();
-        let path = expand_path(path, registry.current_dir());
-        registry.create_dir_all(&path)
+        self.apply_mut(path.as_ref(), |r, p| r.create_dir_all(p))
     }
 
     fn remove_dir<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let mut registry = self.registry.lock().unwrap();
-        let path = expand_path(path, registry.current_dir());
-        registry.remove_dir(&path)
+        self.apply_mut(path.as_ref(), |r, p| r.remove_dir(p))
     }
 
     fn remove_dir_all<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let mut registry = self.registry.lock().unwrap();
-        let path = expand_path(path, registry.current_dir());
-        registry.remove_dir_all(&path)
+        self.apply_mut(path.as_ref(), |r, p| r.remove_dir_all(p))
     }
 
     fn create_file<P, B>(&self, path: P, buf: B) -> Result<()>
         where P: AsRef<Path>,
               B: AsRef<[u8]>
     {
-        let mut registry = self.registry.lock().unwrap();
-        let path = expand_path(path, registry.current_dir());
-        registry.create_file(&path, buf.as_ref())
+        self.apply_mut(path.as_ref(), |r, p| r.create_file(p, buf.as_ref()))
     }
 
     fn write_file<P, B>(&self, path: P, buf: B) -> Result<()>
         where P: AsRef<Path>,
               B: AsRef<[u8]>
     {
-        let mut registry = self.registry.lock().unwrap();
-        let path = expand_path(path, registry.current_dir());
-        registry.write_file(&path, buf.as_ref())
+        self.apply_mut(path.as_ref(), |r, p| r.write_file(p, buf.as_ref()))
     }
 
     fn read_file<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>> {
-        let registry = self.registry.lock().unwrap();
-        let path = expand_path(path, registry.current_dir());
-        registry.read_file(&path)
+        self.apply(path.as_ref(), |r, p| r.read_file(p))
     }
 
     fn readonly<P: AsRef<Path>>(&self, path: P) -> Result<bool> {
-        let registry = self.registry.lock().unwrap();
-        let path = expand_path(path, registry.current_dir());
-        registry.readonly(&path)
+        self.apply(path.as_ref(), |r, p| r.readonly(p))
     }
 
     fn set_readonly<P: AsRef<Path>>(&self, path: P, readonly: bool) -> Result<()> {
-        let mut registry = self.registry.lock().unwrap();
-        let path = expand_path(path, registry.current_dir());
-        registry.set_readonly(&path, readonly)
+        self.apply_mut(path.as_ref(), |r, p| r.set_readonly(p, readonly))
     }
 }
 
 #[cfg(unix)]
 impl UnixFileSystem for FakeFileSystem {
     fn mode<P: AsRef<Path>>(&self, path: P) -> Result<u32> {
-        let registry = self.registry.lock().unwrap();
-        let path = expand_path(path, registry.current_dir());
-        registry.mode(&path)
+        self.apply(path.as_ref(), |r, p| r.mode(p))
     }
 
     fn set_mode<P: AsRef<Path>>(&self, path: P, mode: u32) -> Result<()> {
-        let mut registry = self.registry.lock().unwrap();
-        let path = expand_path(path, registry.current_dir());
-        registry.set_mode(&path, mode)
+        self.apply_mut(path.as_ref(), |r, p| r.set_mode(p, mode))
     }
 }
 
@@ -142,16 +149,5 @@ impl TempFileSystem for FakeFileSystem {
 
         self.create_dir_all(&dir.path())
             .and(Ok(dir))
-    }
-}
-
-fn expand_path<P: AsRef<Path>>(path: P, cwd: Result<PathBuf>) -> PathBuf {
-    let path = path.as_ref();
-
-    if path.is_absolute() {
-        path.to_path_buf()
-    } else {
-        cwd.unwrap_or_else(|_| PathBuf::from("/"))
-            .join(path)
     }
 }
