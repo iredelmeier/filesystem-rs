@@ -29,3 +29,6 @@ tempdir = { version = "^0.3", optional = true }
 [dev-dependencies]
 pseudo = "^0.0.3"
 tempdir = "^0.3"
+
+[badges]
+travis-ci = { repository = "iredelmeier/filesystem-rs" }
