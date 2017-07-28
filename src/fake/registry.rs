@@ -129,6 +129,13 @@ impl Registry {
         }
     }
 
+    pub fn read_file_to_string(&self, path: &Path) -> Result<String> {
+        match self.read_file(path) {
+            Ok(vec) => String::from_utf8(vec).map_err(|_| create_error(ErrorKind::InvalidData)),
+            Err(err) => Err(err),
+        }
+    }
+
     pub fn remove_file(&mut self, path: &Path) -> Result<()> {
         match self.get_file(path) {
             Ok(_) => {

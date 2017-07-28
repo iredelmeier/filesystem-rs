@@ -58,6 +58,10 @@ macro_rules! test_fs {
             make_test!(read_file_returns_contents_as_bytes, $fs);
             make_test!(read_file_fails_if_file_does_not_exist, $fs);
 
+            make_test!(read_file_to_string_returns_contents_as_string, $fs);
+            make_test!(read_file_to_string_fails_if_file_does_not_exist, $fs);
+            make_test!(read_file_to_string_fails_if_contents_are_not_utf8, $fs);
+
             make_test!(create_file_writes_writes_to_new_file, $fs);
             make_test!(create_file_fails_if_file_already_exists, $fs);
 
@@ -345,6 +349,36 @@ fn read_file_fails_if_file_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) 
 
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
+}
+
+fn read_file_to_string_returns_contents_as_string<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test.txt");
+
+    fs.write_file(&path, "test text").unwrap();
+
+    let result = fs.read_file_to_string(&path);
+
+    assert!(result.is_ok());
+    assert_eq!(&result.unwrap(), "test text");
+}
+
+fn read_file_to_string_fails_if_file_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test.txt");
+    let result = fs.read_file_to_string(&path);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
+}
+
+fn read_file_to_string_fails_if_contents_are_not_utf8<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test.txt");
+
+    fs.write_file(&path, &[0, 159, 146, 150]).unwrap();
+
+    let result = fs.read_file_to_string(&path);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidData);
 }
 
 fn create_file_writes_writes_to_new_file<T: FileSystem>(fs: &T, parent: &Path) {
