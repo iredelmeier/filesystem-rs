@@ -124,6 +124,35 @@ impl FileSystem for FakeFileSystem {
         self.apply_mut(path.as_ref(), |r, p| r.remove_file(p))
     }
 
+    fn copy_file<P, Q>(&self, from: P, to: Q) -> Result<()>
+        where P: AsRef<Path>,
+              Q: AsRef<Path>
+    {
+        let mut registry = self.registry.lock().unwrap();
+        let from_storage;
+        let from = from.as_ref();
+        let from = if from.is_relative() {
+            from_storage = registry.current_dir()
+                .unwrap_or_else(|_| PathBuf::from("/"))
+                .join(from);
+            &from_storage
+        } else {
+            from
+        };
+        let to_storage;
+        let to = to.as_ref();
+        let to = if to.is_relative() {
+            to_storage = registry.current_dir()
+                .unwrap_or_else(|_| PathBuf::from("/"))
+                .join(to);
+            &to_storage
+        } else {
+            to
+        };
+
+        registry.copy_file(from, to)
+    }
+
     fn readonly<P: AsRef<Path>>(&self, path: P) -> Result<bool> {
         self.apply(path.as_ref(), |r, p| r.readonly(p))
     }

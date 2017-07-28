@@ -94,6 +94,13 @@ pub trait FileSystem {
     ///
     /// [`std::fs::remove_file`]: https://doc.rust-lang.org/std/fs/fn.remove_file.html
     fn remove_file<P: AsRef<Path>>(&self, path: P) -> Result<()>;
+    /// Copies the file at path `from` to the path `to`.
+    /// This is based on [`std::fs::copy`].
+    ///
+    /// [`std::fs::copy`]: https://doc.rust-lang.org/std/fs/fn.copy.html
+    fn copy_file<P, Q>(&self, from: P, to: Q) -> Result<()>
+        where P: AsRef<Path>,
+              Q: AsRef<Path>;
 
     /// Returns `true` if `path` is a readonly file.
     ///

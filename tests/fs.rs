@@ -65,6 +65,13 @@ macro_rules! test_fs {
             make_test!(remove_file_fails_if_file_does_not_exist, $fs);
             make_test!(remove_file_fails_if_path_is_a_directory, $fs);
 
+            make_test!(copy_file_copies_a_file, $fs);
+            make_test!(copy_file_overwrites_destination_file, $fs);
+            make_test!(copy_file_fails_if_original_file_does_not_exist, $fs);
+            make_test!(copy_file_fails_if_destination_file_is_readonly, $fs);
+            make_test!(copy_file_fails_if_original_path_is_directory, $fs);
+            make_test!(copy_file_fails_if_destination_path_is_directory, $fs);
+
             make_test!(readonly_returns_write_permission, $fs);
             make_test!(readonly_fails_if_path_does_not_exist, $fs);
 
@@ -390,6 +397,89 @@ fn remove_file_fails_if_path_is_a_directory<T: FileSystem>(fs: &T, parent: &Path
     fs.create_dir(&path).unwrap();
 
     let result = fs.remove_file(&path);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
+}
+
+fn copy_file_copies_a_file<T: FileSystem>(fs: &T, parent: &Path) {
+    let from = parent.join("from");
+    let to = parent.join("to");
+
+    fs.create_file(&from, "test").unwrap();
+
+    let result = fs.copy_file(&from, &to);
+
+    assert!(result.is_ok());
+
+    let result = fs.read_file(&to);
+
+    assert!(result.is_ok());
+    assert_eq!(&result.unwrap(), b"test");
+}
+
+fn copy_file_overwrites_destination_file<T: FileSystem>(fs: &T, parent: &Path) {
+    let from = parent.join("from");
+    let to = parent.join("to");
+
+    fs.create_file(&from, "expected").unwrap();
+    fs.create_file(&to, "should be overwritten").unwrap();
+
+    let result = fs.copy_file(&from, &to);
+
+    assert!(result.is_ok());
+
+    let result = fs.read_file(&to);
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), b"expected");
+}
+
+fn copy_file_fails_if_original_file_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+    let from = parent.join("from");
+    let to = parent.join("to");
+
+    let result = fs.copy_file(&from, &to);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidInput);
+    assert!(!fs.is_file(&to));
+}
+
+fn copy_file_fails_if_destination_file_is_readonly<T: FileSystem>(fs: &T, parent: &Path) {
+    let from = parent.join("from");
+    let to = parent.join("to");
+
+    fs.create_file(&from, "test").unwrap();
+    fs.create_file(&to, "").unwrap();
+    fs.set_readonly(&to, true).unwrap();
+
+    let result = fs.copy_file(&from, &to);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::PermissionDenied);
+}
+
+fn copy_file_fails_if_original_path_is_directory<T: FileSystem>(fs: &T, parent: &Path) {
+    let from = parent.join("from");
+    let to = parent.join("to");
+
+    fs.create_dir(&from).unwrap();
+
+    let result = fs.copy_file(&from, &to);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidInput);
+}
+
+fn copy_file_fails_if_destination_path_is_directory<T: FileSystem>(fs: &T, parent: &Path) {
+    let from = parent.join("from");
+    let to = parent.join("to");
+
+    fs.create_file(&from, "").unwrap();
+    fs.create_dir(&to).unwrap();
+
+    let result = fs.copy_file(&from, &to);
 
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);

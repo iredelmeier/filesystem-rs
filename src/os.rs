@@ -109,6 +109,13 @@ impl FileSystem for OsFileSystem {
         fs::remove_file(path)
     }
 
+    fn copy_file<P, Q>(&self, from: P, to: Q) -> Result<()>
+        where P: AsRef<Path>,
+              Q: AsRef<Path>
+    {
+        fs::copy(from, to).and(Ok(()))
+    }
+
     fn readonly<P: AsRef<Path>>(&self, path: P) -> Result<bool> {
         permissions(path.as_ref()).map(|p| p.readonly())
     }

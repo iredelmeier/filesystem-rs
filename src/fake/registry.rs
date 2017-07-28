@@ -140,6 +140,16 @@ impl Registry {
         }
     }
 
+    pub fn copy_file(&mut self, from: &Path, to: &Path) -> Result<()> {
+        match self.read_file(from) {
+            Ok(ref buf) => self.write_file(to, buf),
+            Err(ref err) if err.kind() == ErrorKind::NotFound || err.kind() == ErrorKind::Other => {
+                Err(create_error(ErrorKind::InvalidInput))
+            }
+            Err(err) => Err(err),
+        }
+    }
+
     pub fn readonly(&self, path: &Path) -> Result<bool> {
         match self.files.get(path) {
             Some(&FakeFile::File(ref f)) => Ok(f.mode & 0o222 == 0),
