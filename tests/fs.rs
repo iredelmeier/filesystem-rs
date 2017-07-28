@@ -61,6 +61,10 @@ macro_rules! test_fs {
             make_test!(create_file_writes_writes_to_new_file, $fs);
             make_test!(create_file_fails_if_file_already_exists, $fs);
 
+            make_test!(remove_file_removes_a_file, $fs);
+            make_test!(remove_file_fails_if_file_does_not_exist, $fs);
+            make_test!(remove_file_fails_if_path_is_a_directory, $fs);
+
             make_test!(readonly_returns_write_permission, $fs);
             make_test!(readonly_fails_if_path_does_not_exist, $fs);
 
@@ -356,6 +360,39 @@ fn create_file_fails_if_file_already_exists<T: FileSystem>(fs: &T, parent: &Path
 
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().kind(), ErrorKind::AlreadyExists);
+}
+
+fn remove_file_removes_a_file<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test_file");
+
+    fs.create_file(&path, "").unwrap();
+
+    let result = fs.remove_file(&path);
+
+    assert!(result.is_ok());
+
+    let result = fs.read_file(&path);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
+}
+
+fn remove_file_fails_if_file_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+    let result = fs.remove_file(parent.join("does_not_exist"));
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
+}
+
+fn remove_file_fails_if_path_is_a_directory<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test_dir");
+
+    fs.create_dir(&path).unwrap();
+
+    let result = fs.remove_file(&path);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
 }
 
 fn readonly_returns_write_permission<T: FileSystem>(fs: &T, parent: &Path) {

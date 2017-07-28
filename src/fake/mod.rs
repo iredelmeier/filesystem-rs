@@ -120,6 +120,10 @@ impl FileSystem for FakeFileSystem {
         self.apply(path.as_ref(), |r, p| r.read_file(p))
     }
 
+    fn remove_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        self.apply_mut(path.as_ref(), |r, p| r.remove_file(p))
+    }
+
     fn readonly<P: AsRef<Path>>(&self, path: P) -> Result<bool> {
         self.apply(path.as_ref(), |r, p| r.readonly(p))
     }

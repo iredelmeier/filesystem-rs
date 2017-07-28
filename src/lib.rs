@@ -89,6 +89,11 @@ pub trait FileSystem {
     /// * `path` is a directory.
     /// * Current user has insufficient permissions.
     fn read_file<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>>;
+    /// Removes the file at `path`.
+    /// This is based on [`std::fs::remove_file`].
+    ///
+    /// [`std::fs::remove_file`]: https://doc.rust-lang.org/std/fs/fn.remove_file.html
+    fn remove_file<P: AsRef<Path>>(&self, path: P) -> Result<()>;
 
     /// Returns `true` if `path` is a readonly file.
     ///

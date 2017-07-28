@@ -129,6 +129,17 @@ impl Registry {
         }
     }
 
+    pub fn remove_file(&mut self, path: &Path) -> Result<()> {
+        match self.get_file(path) {
+            Ok(_) => {
+                self.files.remove(path);
+
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
+    }
+
     pub fn readonly(&self, path: &Path) -> Result<bool> {
         match self.files.get(path) {
             Some(&FakeFile::File(ref f)) => Ok(f.mode & 0o222 == 0),

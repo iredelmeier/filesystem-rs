@@ -43,6 +43,7 @@ pub struct MockFileSystem {
     pub write_file: Mock<(PathBuf, Vec<u8>), Result<(), FakeError>>,
     pub read_file: Mock<(PathBuf), Result<Vec<u8>, FakeError>>,
     pub create_file: Mock<(PathBuf, Vec<u8>), Result<(), FakeError>>,
+    pub remove_file: Mock<(PathBuf), Result<(), FakeError>>,
 
     pub readonly: Mock<(PathBuf), Result<bool, FakeError>>,
     pub set_readonly: Mock<(PathBuf, bool), Result<(), FakeError>>,
@@ -65,6 +66,7 @@ impl MockFileSystem {
             write_file: Mock::new(Ok(())),
             read_file: Mock::new(Ok(vec![])),
             create_file: Mock::new(Ok(())),
+            remove_file: Mock::new(Ok(())),
 
             readonly: Mock::new(Ok(false)),
             set_readonly: Mock::new(Ok(())),
@@ -136,6 +138,12 @@ impl FileSystem for MockFileSystem {
     {
         self.create_file
             .call((path.as_ref().to_path_buf(), buf.as_ref().to_vec()))
+            .map_err(Error::from)
+    }
+
+    fn remove_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        self.remove_file
+            .call(path.as_ref().to_path_buf())
             .map_err(Error::from)
     }
 

@@ -105,6 +105,10 @@ impl FileSystem for OsFileSystem {
         file.write_all(buf.as_ref())
     }
 
+    fn remove_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        fs::remove_file(path)
+    }
+
     fn readonly<P: AsRef<Path>>(&self, path: P) -> Result<bool> {
         permissions(path.as_ref()).map(|p| p.readonly())
     }
