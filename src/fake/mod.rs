@@ -20,6 +20,7 @@ mod registry;
 #[cfg(feature = "temp")]
 mod tempdir;
 
+/// An in-memory file system.
 #[derive(Clone, Debug, Default)]
 pub struct FakeFileSystem {
     registry: Arc<Mutex<Registry>>,

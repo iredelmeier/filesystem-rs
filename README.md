@@ -1,7 +1,9 @@
 # filesystem-rs
 
+### Real, fake, and mock implementations of file system operations.
+
 [![Build Status](https://travis-ci.org/iredelmeier/filesystem-rs.svg?branch=master)](https://travis-ci.org/iredelmeier/filesystem-rs) [![Docs](https://docs.rs/filesystem-rs/badge.svg)](https://docs.rs/filesystem-rs)
 
 [Documentation](https://docs.rs/filesystem-rs)
 
-Provides a `FileSystem` trait with real, fake, and mock implementations.
+filesystem-rs provides real, fake, and mock implementations of file system-related functionality. It abstracts away details of certain common but complex operations (e.g., setting permissions) and makes it easier to test any file system-related logic without having to wait for slow I/O operations or coerce the file system into particular states.

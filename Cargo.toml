@@ -1,8 +1,21 @@
 [package]
 name = "filesystem"
 version = "0.1.0"
+description = "Real, fake, and mock implementations of file system operations"
 authors = ["Isobel Redelmeier <iredelmeier@gmail.com>"]
 license = "MIT"
+repository = "https://github.com/iredelmeier/filesystem-rs"
+readme = "README.md"
+categories = [
+  "development-tools::testing",
+  "filesystem"
+]
+keywords = [
+  "filesystem",
+  "testing",
+  "mock",
+  "fake"
+]
 
 [lib]
 bench = false

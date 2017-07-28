@@ -14,6 +14,11 @@ use UnixFileSystem;
 #[cfg(feature = "temp")]
 use {TempDir, TempFileSystem};
 
+/// Tracks a temporary directory that will be deleted once the struct goes out of scope.
+///
+/// This is a wrapper around a [`TempDir`].
+///
+/// [`TempDir`]: https://doc.rust-lang.org/tempdir/tempdir/struct.TempDir.html
 #[cfg(feature = "temp")]
 #[derive(Debug)]
 pub struct OsTempDir(tempdir::TempDir);
@@ -25,6 +30,11 @@ impl TempDir for OsTempDir {
     }
 }
 
+/// An implementation of FileSystem that interacts with the actual operating system's file system.
+///
+/// This is primarily a wrapper for [`fs`] methods.
+///
+/// [`fs`]: https://doc.rust-lang.org/std/fs/index.html
 #[derive(Clone, Debug, Default)]
 pub struct OsFileSystem {}
 
