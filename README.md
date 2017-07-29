@@ -2,7 +2,9 @@
 
 ### Real, fake, and mock implementations of file system operations.
 
-[![Build Status](https://travis-ci.org/iredelmeier/filesystem-rs.svg?branch=master)](https://travis-ci.org/iredelmeier/filesystem-rs) [![Docs](https://docs.rs/filesystem/badge.svg)](https://docs.rs/filesystem)
+[![Build Status](https://travis-ci.org/iredelmeier/filesystem-rs.svg?branch=master)](https://travis-ci.org/iredelmeier/filesystem-rs)
+[![Docs](https://docs.rs/filesystem/badge.svg)](https://docs.rs/filesystem)
+[![Crates.io](https://img.shields.io/crates/v/filesystem.svg)](https://crates.io/crates/filesystem)
 
 [Documentation](https://docs.rs/filesystem)
 
