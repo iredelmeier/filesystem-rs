@@ -43,7 +43,7 @@ macro_rules! test_fs {
             make_test!(create_dir_all_still_succeeds_if_any_dir_already_exists, $fs);
 
             make_test!(remove_dir_deletes_dir, $fs);
-            make_test!(remove_dir_only_deletes_child, $fs);
+            make_test!(remove_dir_does_not_affect_parent, $fs);
             make_test!(remove_dir_fails_if_path_does_not_exist, $fs);
             make_test!(remove_dir_fails_if_path_is_a_file, $fs);
             make_test!(remove_dir_fails_if_dir_is_not_empty, $fs);
@@ -222,7 +222,7 @@ fn remove_dir_deletes_dir<T: FileSystem>(fs: &T, parent: &Path) {
     assert!(!fs.is_dir(&path));
 }
 
-fn remove_dir_only_deletes_child<T: FileSystem>(fs: &T, parent: &Path) {
+fn remove_dir_does_not_affect_parent<T: FileSystem>(fs: &T, parent: &Path) {
     let path = parent.join("parent/child");
 
     fs.create_dir_all(&path).unwrap();

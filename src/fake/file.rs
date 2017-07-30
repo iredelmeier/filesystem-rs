@@ -1,6 +1,3 @@
-use std::collections::BTreeSet;
-use std::path::PathBuf;
-
 #[derive(Debug, Clone)]
 pub struct File {
     pub contents: Vec<u8>,
@@ -18,16 +15,12 @@ impl File {
 
 #[derive(Debug, Clone, Default)]
 pub struct Dir {
-    pub children: BTreeSet<PathBuf>,
     pub mode: u32,
 }
 
 impl Dir {
     pub fn new() -> Self {
-        Dir {
-            children: BTreeSet::new(),
-            mode: 0o644,
-        }
+        Dir { mode: 0o644 }
     }
 }
 

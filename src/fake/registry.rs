@@ -79,30 +79,24 @@ impl Registry {
 
     pub fn remove_dir(&mut self, path: &Path) -> Result<()> {
         match self.get_dir(path) {
-            Ok(dir) if dir.children.is_empty() => {}
+            Ok(_) if self.descendants(path).is_empty() => {}
             Ok(_) => return Err(create_error(ErrorKind::Other)),
             Err(e) => return Err(e),
         };
 
-        self.files.remove(path);
-
-        Ok(())
+        self.remove(path).and(Ok(()))
     }
 
     pub fn remove_dir_all(&mut self, path: &Path) -> Result<()> {
-        let dir = self.get_dir(path)?.clone();
+        self.get_dir_mut(path)?;
 
-        for child in dir.children {
-            if self.is_dir(&child) {
-                self.remove_dir_all(&child)?;
-            } else {
-                self.files.remove(&child);
-            }
+        let descendants = self.descendants(path);
+
+        for child in descendants {
+            self.remove(&child)?;
         }
 
-        self.files.remove(path);
-
-        Ok(())
+        self.remove(path).and(Ok(()))
     }
 
     pub fn create_file(&mut self, path: &Path, buf: &[u8]) -> Result<()> {
@@ -138,11 +132,7 @@ impl Registry {
 
     pub fn remove_file(&mut self, path: &Path) -> Result<()> {
         match self.get_file(path) {
-            Ok(_) => {
-                self.files.remove(path);
-
-                Ok(())
-            }
+            Ok(_) => self.remove(path).and(Ok(())),
             Err(e) => Err(e),
         }
     }
@@ -259,11 +249,27 @@ impl Registry {
         if self.files.contains_key(&path) {
             return Err(create_error(ErrorKind::AlreadyExists));
         } else if let Some(p) = path.parent() {
-            let mut parent = self.get_dir_mut(p)?;
-            parent.children.insert(path.clone());
+            self.get_dir_mut(p)?;
         }
+
         self.files.insert(path, file);
+
         Ok(())
+    }
+
+    fn remove(&mut self, path: &Path) -> Result<FakeFile> {
+        match self.files.remove(path) {
+            Some(f) => Ok(f),
+            None => Err(create_error(ErrorKind::NotFound)),
+        }
+    }
+
+    fn descendants(&self, path: &Path) -> Vec<PathBuf> {
+        self.files
+            .keys()
+            .filter(|p| p.starts_with(path) && *p != path)
+            .map(|p| p.to_path_buf())
+            .collect()
     }
 }
 
