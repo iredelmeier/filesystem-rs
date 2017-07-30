@@ -30,7 +30,7 @@ impl TempDir for OsTempDir {
     }
 }
 
-/// An implementation of FileSystem that interacts with the actual operating system's file system.
+/// An implementation of `FileSystem` that interacts with the actual operating system's file system.
 ///
 /// This is primarily a wrapper for [`fs`] methods.
 ///
