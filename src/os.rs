@@ -125,6 +125,13 @@ impl FileSystem for OsFileSystem {
         fs::copy(from, to).and(Ok(()))
     }
 
+    fn rename<P, Q>(&self, from: P, to: Q) -> Result<()>
+        where P: AsRef<Path>,
+              Q: AsRef<Path>
+    {
+        fs::rename(from, to)
+    }
+
     fn readonly<P: AsRef<Path>>(&self, path: P) -> Result<bool> {
         permissions(path.as_ref()).map(|p| p.readonly())
     }

@@ -111,6 +111,15 @@ pub trait FileSystem {
         where P: AsRef<Path>,
               Q: AsRef<Path>;
 
+    /// Renames a file or directory.
+    /// If both `from` and `to` are files, `to` will be replaced.
+    /// Based on [`std::fs::rename`].
+    ///
+    /// [`std::fs::rename`]: https://doc.rust-lang.org/std/fs/fn.rename.html
+    fn rename<P, Q>(&self, from: P, to: Q) -> Result<()>
+        where P: AsRef<Path>,
+              Q: AsRef<Path>;
+
     /// Returns `true` if `path` is a readonly file.
     ///
     /// * Errors

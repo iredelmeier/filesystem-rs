@@ -47,6 +47,8 @@ pub struct MockFileSystem {
     pub remove_file: Mock<(PathBuf), Result<(), FakeError>>,
     pub copy_file: Mock<(PathBuf, PathBuf), Result<(), FakeError>>,
 
+    pub rename: Mock<(PathBuf, PathBuf), Result<(), FakeError>>,
+
     pub readonly: Mock<(PathBuf), Result<bool, FakeError>>,
     pub set_readonly: Mock<(PathBuf, bool), Result<(), FakeError>>,
 }
@@ -71,6 +73,8 @@ impl MockFileSystem {
             create_file: Mock::new(Ok(())),
             remove_file: Mock::new(Ok(())),
             copy_file: Mock::new(Ok(())),
+
+            rename: Mock::new(Ok(())),
 
             readonly: Mock::new(Ok(false)),
             set_readonly: Mock::new(Ok(())),
@@ -162,6 +166,15 @@ impl FileSystem for MockFileSystem {
               Q: AsRef<Path>
     {
         self.copy_file
+            .call((from.as_ref().to_path_buf(), to.as_ref().to_path_buf()))
+            .map_err(Error::from)
+    }
+
+    fn rename<P, Q>(&self, from: P, to: Q) -> Result<(), Error>
+        where P: AsRef<Path>,
+              Q: AsRef<Path>
+    {
+        self.rename
             .call((from.as_ref().to_path_buf(), to.as_ref().to_path_buf()))
             .map_err(Error::from)
     }

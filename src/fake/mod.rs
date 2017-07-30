@@ -66,6 +66,32 @@ impl FakeFileSystem {
 
         f(&mut registry, path)
     }
+
+    fn apply_mut_from_to<F, T>(&self, from: &Path, to: &Path, mut f: F) -> T
+        where F: FnMut(&mut MutexGuard<Registry>, &Path, &Path) -> T
+    {
+        let mut registry = self.registry.lock().unwrap();
+        let from_storage;
+        let from = if from.is_relative() {
+            from_storage = registry.current_dir()
+                .unwrap_or_else(|_| PathBuf::from("/"))
+                .join(from);
+            &from_storage
+        } else {
+            from
+        };
+        let to_storage;
+        let to = if to.is_relative() {
+            to_storage = registry.current_dir()
+                .unwrap_or_else(|_| PathBuf::from("/"))
+                .join(to);
+            &to_storage
+        } else {
+            to
+        };
+
+        f(&mut registry, from, to)
+    }
 }
 
 impl FileSystem for FakeFileSystem {
@@ -132,29 +158,16 @@ impl FileSystem for FakeFileSystem {
         where P: AsRef<Path>,
               Q: AsRef<Path>
     {
-        let mut registry = self.registry.lock().unwrap();
-        let from_storage;
-        let from = from.as_ref();
-        let from = if from.is_relative() {
-            from_storage = registry.current_dir()
-                .unwrap_or_else(|_| PathBuf::from("/"))
-                .join(from);
-            &from_storage
-        } else {
-            from
-        };
-        let to_storage;
-        let to = to.as_ref();
-        let to = if to.is_relative() {
-            to_storage = registry.current_dir()
-                .unwrap_or_else(|_| PathBuf::from("/"))
-                .join(to);
-            &to_storage
-        } else {
-            to
-        };
+        self.apply_mut_from_to(from.as_ref(),
+                               to.as_ref(),
+                               |r, from, to| r.copy_file(from, to))
+    }
 
-        registry.copy_file(from, to)
+    fn rename<P, Q>(&self, from: P, to: Q) -> Result<()>
+        where P: AsRef<Path>,
+              Q: AsRef<Path>
+    {
+        self.apply_mut_from_to(from.as_ref(), to.as_ref(), |r, from, to| r.rename(from, to))
     }
 
     fn readonly<P: AsRef<Path>>(&self, path: P) -> Result<bool> {

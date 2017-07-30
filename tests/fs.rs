@@ -76,6 +76,14 @@ macro_rules! test_fs {
             make_test!(copy_file_fails_if_original_path_is_directory, $fs);
             make_test!(copy_file_fails_if_destination_path_is_directory, $fs);
 
+            make_test!(rename_renames_a_file, $fs);
+            make_test!(rename_renames_a_directory, $fs);
+            make_test!(rename_overwrites_destination_file, $fs);
+            make_test!(rename_overwrites_empty_destination_directory, $fs);
+            make_test!(rename_fails_if_original_path_does_not_exist, $fs);
+            make_test!(rename_fails_if_original_and_destination_are_different_types, $fs);
+            make_test!(rename_fails_if_destination_directory_is_not_empty, $fs);
+
             make_test!(readonly_returns_write_permission, $fs);
             make_test!(readonly_fails_if_path_does_not_exist, $fs);
 
@@ -514,6 +522,124 @@ fn copy_file_fails_if_destination_path_is_directory<T: FileSystem>(fs: &T, paren
     fs.create_dir(&to).unwrap();
 
     let result = fs.copy_file(&from, &to);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
+}
+
+fn rename_renames_a_file<T: FileSystem>(fs: &T, parent: &Path) {
+    let from = parent.join("from");
+    let to = parent.join("to");
+
+    fs.create_file(&from, "contents").unwrap();
+
+    let result = fs.rename(&from, &to);
+
+    assert!(result.is_ok());
+    assert!(!fs.is_file(&from));
+
+    let result = fs.read_file_to_string(&to);
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "contents");
+}
+
+fn rename_renames_a_directory<T: FileSystem>(fs: &T, parent: &Path) {
+    let from = parent.join("from");
+    let to = parent.join("to");
+    let child = from.join("child");
+
+    fs.create_dir(&from).unwrap();
+    fs.create_file(&child, "child").unwrap();
+
+    let result = fs.rename(&from, &to);
+
+    assert!(result.is_ok());
+    assert!(!fs.is_dir(&from));
+
+    let result = fs.read_file_to_string(to.join("child"));
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "child");
+}
+
+fn rename_overwrites_destination_file<T: FileSystem>(fs: &T, parent: &Path) {
+    let from = parent.join("from");
+    let to = parent.join("to");
+
+    fs.create_file(&from, "from").unwrap();
+    fs.create_file(&to, "to").unwrap();
+
+    let result = fs.rename(&from, &to);
+
+    assert!(result.is_ok());
+    assert!(!fs.is_file(&from));
+
+    let result = fs.read_file_to_string(&to);
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "from");
+}
+
+fn rename_overwrites_empty_destination_directory<T: FileSystem>(fs: &T, parent: &Path) {
+    let from = parent.join("from");
+    let to = parent.join("to");
+    let child = from.join("child");
+
+    fs.create_dir(&from).unwrap();
+    fs.create_dir(&to).unwrap();
+    fs.create_file(&child, "child").unwrap();
+
+    let result = fs.rename(&from, &to);
+
+    assert!(result.is_ok(), "err: {:?}", result);
+    assert!(!fs.is_dir(&from));
+
+    let result = fs.read_file_to_string(to.join("child"));
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "child");
+}
+
+fn rename_fails_if_original_path_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+    let from = parent.join("from");
+    let to = parent.join("to");
+
+    let result = fs.rename(&from, &to);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
+}
+
+fn rename_fails_if_original_and_destination_are_different_types<T: FileSystem>(fs: &T,
+                                                                               parent: &Path) {
+    let file = parent.join("file");
+    let dir = parent.join("dir");
+
+    fs.create_file(&file, "").unwrap();
+    fs.create_dir(&dir).unwrap();
+
+    let result = fs.rename(&file, &dir);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
+
+    let result = fs.rename(&dir, &file);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
+}
+
+fn rename_fails_if_destination_directory_is_not_empty<T: FileSystem>(fs: &T, parent: &Path) {
+    let from = parent.join("from");
+    let to = parent.join("to");
+    let child = to.join("child");
+
+    fs.create_dir(&from).unwrap();
+    fs.create_dir(&to).unwrap();
+    fs.create_file(&child, "child").unwrap();
+
+    let result = fs.rename(&from, &to);
 
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);

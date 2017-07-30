@@ -147,6 +147,28 @@ impl Registry {
         }
     }
 
+    pub fn rename(&mut self, from: &Path, to: &Path) -> Result<()> {
+        match (self.files.get(from), self.files.get(to)) {
+            (Some(&FakeFile::File(_)), Some(&FakeFile::File(_))) => {
+                self.remove_file(to)?;
+                self.rename_path(from, to.to_path_buf())
+            }
+            (Some(&FakeFile::File(_)), None) => self.rename_path(from, to.to_path_buf()),
+            (Some(&FakeFile::Dir(_)), Some(&FakeFile::Dir(_))) if self.descendants(to)
+                .is_empty() => {
+                self.remove(to)?;
+                self.move_dir(from, to)
+            }
+            (Some(&FakeFile::File(_)), Some(&FakeFile::Dir(_))) |
+            (Some(&FakeFile::Dir(_)), Some(&FakeFile::File(_))) |
+            (Some(&FakeFile::Dir(_)), Some(&FakeFile::Dir(_))) => {
+                Err(create_error(ErrorKind::Other))
+            }
+            (Some(&FakeFile::Dir(_)), None) => self.move_dir(from, to),
+            (None, _) => Err(create_error(ErrorKind::NotFound)),
+        }
+    }
+
     pub fn readonly(&self, path: &Path) -> Result<bool> {
         match self.files.get(path) {
             Some(&FakeFile::File(ref f)) => Ok(f.mode & 0o222 == 0),
@@ -270,6 +292,23 @@ impl Registry {
             .filter(|p| p.starts_with(path) && *p != path)
             .map(|p| p.to_path_buf())
             .collect()
+    }
+
+    fn rename_path(&mut self, from: &Path, to: PathBuf) -> Result<()> {
+        let file = self.remove(from)?;
+        self.insert(to, file)
+    }
+
+    fn move_dir(&mut self, from: &Path, to: &Path) -> Result<()> {
+        self.rename_path(from, to.to_path_buf())?;
+
+        for descendant in self.descendants(from) {
+            let stem = descendant.strip_prefix(from).unwrap_or(&descendant);
+            let new_path = to.join(stem);
+            self.rename_path(&descendant, new_path)?;
+        }
+
+        Ok(())
     }
 }
 
