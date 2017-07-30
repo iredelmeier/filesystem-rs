@@ -642,7 +642,6 @@ fn rename_fails_if_destination_directory_is_not_empty<T: FileSystem>(fs: &T, par
     let result = fs.rename(&from, &to);
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
 }
 
 fn readonly_returns_write_permission<T: FileSystem>(fs: &T, parent: &Path) {
