@@ -78,8 +78,9 @@ impl FileSystem for OsFileSystem {
     }
 
     fn write_file<P, B>(&self, path: P, buf: B) -> Result<()>
-        where P: AsRef<Path>,
-              B: AsRef<[u8]>
+    where
+        P: AsRef<Path>,
+        B: AsRef<[u8]>,
     {
         let mut file = File::create(path)?;
         file.write_all(buf.as_ref())
@@ -104,12 +105,11 @@ impl FileSystem for OsFileSystem {
     }
 
     fn create_file<P, B>(&self, path: P, buf: B) -> Result<()>
-        where P: AsRef<Path>,
-              B: AsRef<[u8]>
+    where
+        P: AsRef<Path>,
+        B: AsRef<[u8]>,
     {
-        let mut file = OpenOptions::new().write(true)
-            .create_new(true)
-            .open(path)?;
+        let mut file = OpenOptions::new().write(true).create_new(true).open(path)?;
 
         file.write_all(buf.as_ref())
     }
@@ -119,15 +119,17 @@ impl FileSystem for OsFileSystem {
     }
 
     fn copy_file<P, Q>(&self, from: P, to: Q) -> Result<()>
-        where P: AsRef<Path>,
-              Q: AsRef<Path>
+    where
+        P: AsRef<Path>,
+        Q: AsRef<Path>,
     {
         fs::copy(from, to).and(Ok(()))
     }
 
     fn rename<P, Q>(&self, from: P, to: Q) -> Result<()>
-        where P: AsRef<Path>,
-              Q: AsRef<Path>
+    where
+        P: AsRef<Path>,
+        Q: AsRef<Path>,
     {
         fs::rename(from, to)
     }

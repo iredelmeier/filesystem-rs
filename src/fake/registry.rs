@@ -24,8 +24,7 @@ impl Registry {
     }
 
     pub fn current_dir(&self) -> Result<PathBuf> {
-        self.get_dir(&self.cwd)
-            .map(|_| self.cwd.clone())
+        self.get_dir(&self.cwd).map(|_| self.cwd.clone())
     }
 
     pub fn set_current_dir(&mut self, cwd: PathBuf) -> Result<()> {
@@ -39,17 +38,11 @@ impl Registry {
     }
 
     pub fn is_dir(&self, path: &Path) -> bool {
-        self.files
-            .get(path)
-            .map(FakeFile::is_dir)
-            .unwrap_or(false)
+        self.files.get(path).map(FakeFile::is_dir).unwrap_or(false)
     }
 
     pub fn is_file(&self, path: &Path) -> bool {
-        self.files
-            .get(path)
-            .map(FakeFile::is_file)
-            .unwrap_or(false)
+        self.files.get(path).map(FakeFile::is_file).unwrap_or(false)
     }
 
     pub fn create_dir(&mut self, path: &Path) -> Result<()> {
@@ -154,8 +147,8 @@ impl Registry {
                 self.rename_path(from, to.to_path_buf())
             }
             (Some(&FakeFile::File(_)), None) => self.rename_path(from, to.to_path_buf()),
-            (Some(&FakeFile::Dir(_)), Some(&FakeFile::Dir(_))) if self.descendants(to)
-                .is_empty() => {
+            (Some(&FakeFile::Dir(_)), Some(&FakeFile::Dir(_)))
+                if self.descendants(to).is_empty() => {
                 self.remove(to)?;
                 self.move_dir(from, to)
             }

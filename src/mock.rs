@@ -102,9 +102,9 @@ impl FileSystem for MockFileSystem {
     }
 
     fn create_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
-        self.create_dir
-            .call(path.as_ref().to_path_buf())
-            .map_err(Error::from)
+        self.create_dir.call(path.as_ref().to_path_buf()).map_err(
+            Error::from,
+        )
     }
 
     fn create_dir_all<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
@@ -114,9 +114,9 @@ impl FileSystem for MockFileSystem {
     }
 
     fn remove_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
-        self.remove_dir
-            .call(path.as_ref().to_path_buf())
-            .map_err(Error::from)
+        self.remove_dir.call(path.as_ref().to_path_buf()).map_err(
+            Error::from,
+        )
     }
 
     fn remove_dir_all<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
@@ -126,8 +126,9 @@ impl FileSystem for MockFileSystem {
     }
 
     fn write_file<P, B>(&self, path: P, buf: B) -> Result<(), Error>
-        where P: AsRef<Path>,
-              B: AsRef<[u8]>
+    where
+        P: AsRef<Path>,
+        B: AsRef<[u8]>,
     {
         self.write_file
             .call((path.as_ref().to_path_buf(), buf.as_ref().to_vec()))
@@ -135,9 +136,9 @@ impl FileSystem for MockFileSystem {
     }
 
     fn read_file<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>, Error> {
-        self.read_file
-            .call(path.as_ref().to_path_buf())
-            .map_err(Error::from)
+        self.read_file.call(path.as_ref().to_path_buf()).map_err(
+            Error::from,
+        )
     }
 
     fn read_file_to_string<P: AsRef<Path>>(&self, path: P) -> Result<String, Error> {
@@ -147,8 +148,9 @@ impl FileSystem for MockFileSystem {
     }
 
     fn create_file<P, B>(&self, path: P, buf: B) -> Result<(), Error>
-        where P: AsRef<Path>,
-              B: AsRef<[u8]>
+    where
+        P: AsRef<Path>,
+        B: AsRef<[u8]>,
     {
         self.create_file
             .call((path.as_ref().to_path_buf(), buf.as_ref().to_vec()))
@@ -156,14 +158,15 @@ impl FileSystem for MockFileSystem {
     }
 
     fn remove_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
-        self.remove_file
-            .call(path.as_ref().to_path_buf())
-            .map_err(Error::from)
+        self.remove_file.call(path.as_ref().to_path_buf()).map_err(
+            Error::from,
+        )
     }
 
     fn copy_file<P, Q>(&self, from: P, to: Q) -> Result<(), Error>
-        where P: AsRef<Path>,
-              Q: AsRef<Path>
+    where
+        P: AsRef<Path>,
+        Q: AsRef<Path>,
     {
         self.copy_file
             .call((from.as_ref().to_path_buf(), to.as_ref().to_path_buf()))
@@ -171,8 +174,9 @@ impl FileSystem for MockFileSystem {
     }
 
     fn rename<P, Q>(&self, from: P, to: Q) -> Result<(), Error>
-        where P: AsRef<Path>,
-              Q: AsRef<Path>
+    where
+        P: AsRef<Path>,
+        Q: AsRef<Path>,
     {
         self.rename
             .call((from.as_ref().to_path_buf(), to.as_ref().to_path_buf()))
@@ -180,9 +184,9 @@ impl FileSystem for MockFileSystem {
     }
 
     fn readonly<P: AsRef<Path>>(&self, path: P) -> Result<bool, Error> {
-        self.readonly
-            .call(path.as_ref().to_path_buf())
-            .map_err(Error::from)
+        self.readonly.call(path.as_ref().to_path_buf()).map_err(
+            Error::from,
+        )
     }
 
     fn set_readonly<P: AsRef<Path>>(&self, path: P, readonly: bool) -> Result<(), Error> {

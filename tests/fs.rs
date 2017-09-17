@@ -611,8 +611,10 @@ fn rename_fails_if_original_path_does_not_exist<T: FileSystem>(fs: &T, parent: &
     assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
 }
 
-fn rename_fails_if_original_and_destination_are_different_types<T: FileSystem>(fs: &T,
-                                                                               parent: &Path) {
+fn rename_fails_if_original_and_destination_are_different_types<T: FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let file = parent.join("file");
     let dir = parent.join("dir");
 
@@ -769,8 +771,10 @@ fn set_mode_sets_permissions<T: FileSystem + UnixFileSystem>(fs: &T, parent: &Pa
     assert!(read_result.is_err());
     assert!(write_result.is_err());
     assert_eq!(read_result.unwrap_err().kind(), ErrorKind::PermissionDenied);
-    assert_eq!(write_result.unwrap_err().kind(),
-               ErrorKind::PermissionDenied);
+    assert_eq!(
+        write_result.unwrap_err().kind(),
+        ErrorKind::PermissionDenied
+    );
 
     let result = fs.set_mode(&path, 0o200);
 

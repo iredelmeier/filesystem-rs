@@ -34,12 +34,14 @@ impl FakeFileSystem {
     }
 
     fn apply<F, T>(&self, path: &Path, f: F) -> T
-        where F: FnOnce(&MutexGuard<Registry>, &Path) -> T
+    where
+        F: FnOnce(&MutexGuard<Registry>, &Path) -> T,
     {
         let registry = self.registry.lock().unwrap();
         let storage;
         let path = if path.is_relative() {
-            storage = registry.current_dir()
+            storage = registry
+                .current_dir()
                 .unwrap_or_else(|_| PathBuf::from("/"))
                 .join(path);
             &storage
@@ -51,12 +53,14 @@ impl FakeFileSystem {
     }
 
     fn apply_mut<F, T>(&self, path: &Path, mut f: F) -> T
-        where F: FnMut(&mut MutexGuard<Registry>, &Path) -> T
+    where
+        F: FnMut(&mut MutexGuard<Registry>, &Path) -> T,
     {
         let mut registry = self.registry.lock().unwrap();
         let storage;
         let path = if path.is_relative() {
-            storage = registry.current_dir()
+            storage = registry
+                .current_dir()
                 .unwrap_or_else(|_| PathBuf::from("/"))
                 .join(path);
             &storage
@@ -68,12 +72,14 @@ impl FakeFileSystem {
     }
 
     fn apply_mut_from_to<F, T>(&self, from: &Path, to: &Path, mut f: F) -> T
-        where F: FnMut(&mut MutexGuard<Registry>, &Path, &Path) -> T
+    where
+        F: FnMut(&mut MutexGuard<Registry>, &Path, &Path) -> T,
     {
         let mut registry = self.registry.lock().unwrap();
         let from_storage;
         let from = if from.is_relative() {
-            from_storage = registry.current_dir()
+            from_storage = registry
+                .current_dir()
                 .unwrap_or_else(|_| PathBuf::from("/"))
                 .join(from);
             &from_storage
@@ -82,7 +88,8 @@ impl FakeFileSystem {
         };
         let to_storage;
         let to = if to.is_relative() {
-            to_storage = registry.current_dir()
+            to_storage = registry
+                .current_dir()
                 .unwrap_or_else(|_| PathBuf::from("/"))
                 .join(to);
             &to_storage
@@ -129,15 +136,17 @@ impl FileSystem for FakeFileSystem {
     }
 
     fn create_file<P, B>(&self, path: P, buf: B) -> Result<()>
-        where P: AsRef<Path>,
-              B: AsRef<[u8]>
+    where
+        P: AsRef<Path>,
+        B: AsRef<[u8]>,
     {
         self.apply_mut(path.as_ref(), |r, p| r.create_file(p, buf.as_ref()))
     }
 
     fn write_file<P, B>(&self, path: P, buf: B) -> Result<()>
-        where P: AsRef<Path>,
-              B: AsRef<[u8]>
+    where
+        P: AsRef<Path>,
+        B: AsRef<[u8]>,
     {
         self.apply_mut(path.as_ref(), |r, p| r.write_file(p, buf.as_ref()))
     }
@@ -155,17 +164,21 @@ impl FileSystem for FakeFileSystem {
     }
 
     fn copy_file<P, Q>(&self, from: P, to: Q) -> Result<()>
-        where P: AsRef<Path>,
-              Q: AsRef<Path>
+    where
+        P: AsRef<Path>,
+        Q: AsRef<Path>,
     {
-        self.apply_mut_from_to(from.as_ref(),
-                               to.as_ref(),
-                               |r, from, to| r.copy_file(from, to))
+        self.apply_mut_from_to(
+            from.as_ref(),
+            to.as_ref(),
+            |r, from, to| r.copy_file(from, to),
+        )
     }
 
     fn rename<P, Q>(&self, from: P, to: Q) -> Result<()>
-        where P: AsRef<Path>,
-              Q: AsRef<Path>
+    where
+        P: AsRef<Path>,
+        Q: AsRef<Path>,
     {
         self.apply_mut_from_to(from.as_ref(), to.as_ref(), |r, from, to| r.rename(from, to))
     }
@@ -198,7 +211,6 @@ impl TempFileSystem for FakeFileSystem {
         let base = env::temp_dir();
         let dir = FakeTempDir::new(Arc::downgrade(&self.registry), &base, prefix.as_ref());
 
-        self.create_dir_all(&dir.path())
-            .and(Ok(dir))
+        self.create_dir_all(&dir.path()).and(Ok(dir))
     }
 }

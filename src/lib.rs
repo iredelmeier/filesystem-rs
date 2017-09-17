@@ -69,8 +69,9 @@ pub trait FileSystem {
     /// * The parent directory of `path` does not exist.
     /// * Current user has insufficient permissions.
     fn create_file<P, B>(&self, path: P, buf: B) -> Result<()>
-        where P: AsRef<Path>,
-              B: AsRef<[u8]>;
+    where
+        P: AsRef<Path>,
+        B: AsRef<[u8]>;
     /// Writes `buf` to a new or existing file at `buf`.
     /// This will overwrite any contents that already exist.
     ///
@@ -79,8 +80,9 @@ pub trait FileSystem {
     /// * The parent directory of `path` does not exist.
     /// * Current user has insufficient permissions.
     fn write_file<P, B>(&self, path: P, buf: B) -> Result<()>
-        where P: AsRef<Path>,
-              B: AsRef<[u8]>;
+    where
+        P: AsRef<Path>,
+        B: AsRef<[u8]>;
     /// Returns the contents of `path`.
     ///
     /// * Errors
@@ -108,8 +110,9 @@ pub trait FileSystem {
     ///
     /// [`std::fs::copy`]: https://doc.rust-lang.org/std/fs/fn.copy.html
     fn copy_file<P, Q>(&self, from: P, to: Q) -> Result<()>
-        where P: AsRef<Path>,
-              Q: AsRef<Path>;
+    where
+        P: AsRef<Path>,
+        Q: AsRef<Path>;
 
     /// Renames a file or directory.
     /// If both `from` and `to` are files, `to` will be replaced.
@@ -117,8 +120,9 @@ pub trait FileSystem {
     ///
     /// [`std::fs::rename`]: https://doc.rust-lang.org/std/fs/fn.rename.html
     fn rename<P, Q>(&self, from: P, to: Q) -> Result<()>
-        where P: AsRef<Path>,
-              Q: AsRef<Path>;
+    where
+        P: AsRef<Path>,
+        Q: AsRef<Path>;
 
     /// Returns `true` if `path` is a readonly file.
     ///
