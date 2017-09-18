@@ -92,6 +92,12 @@ impl Registry {
         self.remove(path).and(Ok(()))
     }
 
+    pub fn read_dir(&self, path: &Path) -> Result<Vec<PathBuf>> {
+        self.get_dir(path)?;
+
+        Ok(self.descendants(path))
+    }
+
     pub fn create_file(&mut self, path: &Path, buf: &[u8]) -> Result<()> {
         let file = File::new(buf.to_vec());
 

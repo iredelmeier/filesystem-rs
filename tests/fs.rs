@@ -1,9 +1,9 @@
 extern crate filesystem;
 
 use std::io::ErrorKind;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use filesystem::{FakeFileSystem, FileSystem, OsFileSystem, TempDir, TempFileSystem};
+use filesystem::{DirEntry, FakeFileSystem, FileSystem, OsFileSystem, TempDir, TempFileSystem};
 #[cfg(unix)]
 use filesystem::UnixFileSystem;
 
@@ -50,6 +50,10 @@ macro_rules! test_fs {
 
             make_test!(remove_dir_all_removes_dir_and_contents, $fs);
             make_test!(remove_dir_all_fails_if_path_is_a_file, $fs);
+
+            make_test!(read_dir_returns_dir_entries, $fs);
+            make_test!(read_dir_fails_if_path_does_not_exist, $fs);
+            make_test!(read_dir_fails_if_path_is_a_file, $fs);
 
             make_test!(write_file_writes_to_new_file, $fs);
             make_test!(write_file_overwrites_contents_of_existing_file, $fs);
@@ -301,6 +305,56 @@ fn remove_dir_all_fails_if_path_is_a_file<T: FileSystem>(fs: &T, parent: &Path) 
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
     assert!(fs.is_file(&path));
+}
+
+fn read_dir_returns_dir_entries<T: FileSystem>(fs: &T, parent: &Path) {
+    let file1 = parent.join("file1");
+    let file2 = parent.join("file2");
+    let dir1 = parent.join("dir1");
+    let dir2 = parent.join("dir2");
+
+    fs.create_file(&file1, "").unwrap();
+    fs.create_file(&file2, "").unwrap();
+    fs.create_dir(&dir1).unwrap();
+    fs.create_dir(&dir2).unwrap();
+
+    let result = fs.read_dir(parent);
+
+    assert!(result.is_ok());
+
+    let mut entries: Vec<PathBuf> = result.unwrap().map(|e| e.unwrap().path()).collect();
+    let expected_paths = &mut [file1, file2, dir1, dir2];
+
+    entries.sort();
+    expected_paths.sort();
+
+    assert_eq!(&entries, expected_paths);
+}
+
+fn read_dir_fails_if_path_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("does_not_exist");
+    let result = fs.read_dir(&path);
+
+    assert!(result.is_err());
+
+    match result {
+        Ok(_) => panic!("should be an err"),
+        Err(err) => assert_eq!(err.kind(), ErrorKind::NotFound),
+    }
+}
+
+fn read_dir_fails_if_path_is_a_file<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("file");
+
+    fs.create_file(&path, "").unwrap();
+
+    let result = fs.read_dir(&path);
+
+    assert!(result.is_err());
+    match result {
+        Ok(_) => panic!("should be an err"),
+        Err(err) => assert_eq!(err.kind(), ErrorKind::Other),
+    }
 }
 
 fn write_file_writes_to_new_file<T: FileSystem>(fs: &T, parent: &Path) {

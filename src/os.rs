@@ -1,5 +1,6 @@
-use std::{env, fs};
-use std::fs::{File, OpenOptions, Permissions};
+use std::env;
+use std::ffi::OsString;
+use std::fs::{self, File, OpenOptions, Permissions};
 use std::io::{Read, Result, Write};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -8,11 +9,11 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "temp")]
 use tempdir;
 
-use FileSystem;
-#[cfg(unix)]
-use UnixFileSystem;
+use {DirEntry, FileSystem, ReadDir};
 #[cfg(feature = "temp")]
 use {TempDir, TempFileSystem};
+#[cfg(unix)]
+use UnixFileSystem;
 
 /// Tracks a temporary directory that will be deleted once the struct goes out of scope.
 ///
@@ -45,6 +46,9 @@ impl OsFileSystem {
 }
 
 impl FileSystem for OsFileSystem {
+    type DirEntry = fs::DirEntry;
+    type ReadDir = fs::ReadDir;
+
     fn current_dir(&self) -> Result<PathBuf> {
         env::current_dir()
     }
@@ -75,6 +79,10 @@ impl FileSystem for OsFileSystem {
 
     fn remove_dir_all<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         fs::remove_dir_all(path)
+    }
+
+    fn read_dir<P: AsRef<Path>>(&self, path: P) -> Result<Self::ReadDir> {
+        fs::read_dir(path)
     }
 
     fn write_file<P, B>(&self, path: P, buf: B) -> Result<()>
@@ -170,6 +178,18 @@ impl TempFileSystem for OsFileSystem {
         tempdir::TempDir::new(prefix.as_ref()).map(OsTempDir)
     }
 }
+
+impl DirEntry for fs::DirEntry {
+    fn file_name(&self) -> OsString {
+        self.file_name()
+    }
+
+    fn path(&self) -> PathBuf {
+        self.path()
+    }
+}
+
+impl ReadDir<fs::DirEntry> for fs::ReadDir {}
 
 fn permissions(path: &Path) -> Result<Permissions> {
     let metadata = fs::metadata(path)?;

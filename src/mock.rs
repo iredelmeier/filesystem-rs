@@ -1,6 +1,8 @@
 use std::error::Error as StdError;
+use std::ffi::OsString;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
+use std::vec::IntoIter;
 
 use pseudo::Mock;
 
@@ -11,6 +13,56 @@ pub struct FakeError {
     kind: ErrorKind,
     description: String,
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct DirEntry {
+    file_name: PathBuf,
+    is_file: bool,
+}
+
+impl DirEntry {
+    pub fn new<P: AsRef<Path>>(file_name: P, is_file: bool) -> Self {
+        DirEntry {
+            file_name: file_name.as_ref().to_path_buf(),
+            is_file,
+        }
+    }
+}
+
+impl ::DirEntry for DirEntry {
+    fn path(&self) -> PathBuf {
+        self.file_name.clone()
+    }
+
+    fn file_name(&self) -> OsString {
+        self.file_name.clone().into_os_string()
+    }
+}
+
+#[derive(Debug)]
+pub struct ReadDir(IntoIter<Result<DirEntry, Error>>);
+
+impl ReadDir {
+    pub fn new() -> Self {
+        ReadDir(vec![].into_iter())
+    }
+}
+
+impl Default for ReadDir {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Iterator for ReadDir {
+    type Item = Result<DirEntry, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl ::ReadDir<DirEntry> for ReadDir {}
 
 impl From<Error> for FakeError {
     fn from(err: Error) -> Self {
@@ -39,6 +91,7 @@ pub struct MockFileSystem {
     pub create_dir_all: Mock<PathBuf, Result<(), FakeError>>,
     pub remove_dir: Mock<PathBuf, Result<(), FakeError>>,
     pub remove_dir_all: Mock<PathBuf, Result<(), FakeError>>,
+    pub read_dir: Mock<PathBuf, Result<Vec<Result<DirEntry, FakeError>>, FakeError>>,
 
     pub write_file: Mock<(PathBuf, Vec<u8>), Result<(), FakeError>>,
     pub read_file: Mock<(PathBuf), Result<Vec<u8>, FakeError>>,
@@ -66,6 +119,7 @@ impl MockFileSystem {
             create_dir_all: Mock::new(Ok(())),
             remove_dir: Mock::new(Ok(())),
             remove_dir_all: Mock::new(Ok(())),
+            read_dir: Mock::new(Ok(vec![])),
 
             write_file: Mock::new(Ok(())),
             read_file: Mock::new(Ok(vec![])),
@@ -82,7 +136,16 @@ impl MockFileSystem {
     }
 }
 
+impl Default for MockFileSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FileSystem for MockFileSystem {
+    type DirEntry = DirEntry;
+    type ReadDir = ReadDir;
+
     fn current_dir(&self) -> Result<PathBuf, Error> {
         self.current_dir.call(()).map_err(Error::from)
     }
@@ -122,6 +185,20 @@ impl FileSystem for MockFileSystem {
     fn remove_dir_all<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
         self.remove_dir_all
             .call(path.as_ref().to_path_buf())
+            .map_err(Error::from)
+    }
+
+    fn read_dir<P: AsRef<Path>>(&self, path: P) -> Result<Self::ReadDir, Error> {
+        self.read_dir
+            .call(path.as_ref().to_path_buf())
+            .map(|entries| {
+                let entries: Vec<Result<DirEntry, Error>> = entries
+                    .into_iter()
+                    .map(|e| e.map_err(Error::from))
+                    .collect();
+
+                ReadDir(entries.into_iter())
+            })
             .map_err(Error::from)
     }
 

@@ -1,7 +1,10 @@
 use std::env;
+use std::ffi::{OsStr, OsString};
 use std::io::Result;
+use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::vec::IntoIter;
 
 use FileSystem;
 #[cfg(unix)]
@@ -19,6 +22,55 @@ mod file;
 mod registry;
 #[cfg(feature = "temp")]
 mod tempdir;
+
+#[derive(Debug, Clone)]
+pub struct DirEntry {
+    parent: PathBuf,
+    file_name: OsString,
+}
+
+impl DirEntry {
+    fn new<P, S>(parent: P, file_name: S) -> Self
+    where
+        P: AsRef<Path>,
+        S: AsRef<OsStr>,
+    {
+        DirEntry {
+            parent: parent.as_ref().to_path_buf(),
+            file_name: file_name.as_ref().to_os_string(),
+        }
+    }
+}
+
+impl ::DirEntry for DirEntry {
+    fn file_name(&self) -> OsString {
+        self.file_name.clone()
+    }
+
+    fn path(&self) -> PathBuf {
+        self.parent.join(&self.file_name)
+    }
+}
+
+#[derive(Debug)]
+pub struct ReadDir(IntoIter<Result<DirEntry>>);
+
+impl ReadDir {
+    fn new(entries: Vec<Result<DirEntry>>) -> Self {
+        ReadDir(entries.into_iter())
+    }
+}
+
+impl Iterator for ReadDir {
+    type Item = Result<DirEntry>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl ::ReadDir<DirEntry> for ReadDir {}
+
 
 /// An in-memory file system.
 #[derive(Clone, Debug, Default)]
@@ -102,13 +154,16 @@ impl FakeFileSystem {
 }
 
 impl FileSystem for FakeFileSystem {
+    type DirEntry = DirEntry;
+    type ReadDir = ReadDir;
+
     fn current_dir(&self) -> Result<PathBuf> {
         let registry = self.registry.lock().unwrap();
         registry.current_dir()
     }
 
     fn set_current_dir<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        self.apply_mut(path.as_ref(), |mut r, p| r.set_current_dir(p.to_path_buf()))
+        self.apply_mut(path.as_ref(), |r, p| r.set_current_dir(p.to_path_buf()))
     }
 
     fn is_dir<P: AsRef<Path>>(&self, path: P) -> bool {
@@ -133,6 +188,23 @@ impl FileSystem for FakeFileSystem {
 
     fn remove_dir_all<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         self.apply_mut(path.as_ref(), |r, p| r.remove_dir_all(p))
+    }
+
+    fn read_dir<P: AsRef<Path>>(&self, path: P) -> Result<Self::ReadDir> {
+        let path = path.as_ref();
+
+        self.apply(path, |r, p| r.read_dir(p)).map(|entries| {
+            let entries = entries
+                .iter()
+                .map(|e| {
+                    let file_name = e.file_name().unwrap_or_else(|| e.as_os_str());
+
+                    Ok(DirEntry::new(path, &file_name))
+                })
+                .collect();
+
+            ReadDir::new(entries)
+        })
     }
 
     fn create_file<P, B>(&self, path: P, buf: B) -> Result<()>

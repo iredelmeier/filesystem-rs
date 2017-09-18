@@ -5,6 +5,7 @@ extern crate rand;
 #[cfg(feature = "temp")]
 extern crate tempdir;
 
+use std::ffi::OsString;
 use std::io::Result;
 use std::path::{Path, PathBuf};
 
@@ -24,6 +25,9 @@ mod os;
 
 /// Provides standard file system operations.
 pub trait FileSystem {
+    type DirEntry: DirEntry;
+    type ReadDir: ReadDir<Self::DirEntry>;
+
     /// Returns the current working directory.
     /// This is based on [`std::env::current_dir`].
     ///
@@ -60,6 +64,11 @@ pub trait FileSystem {
     ///
     /// [`std::fs::remove_dir_all`]: https://doc.rust-lang.org/std/fs/fn.remove_dir_all.html
     fn remove_dir_all<P: AsRef<Path>>(&self, path: P) -> Result<()>;
+    /// Returns an iterator over the entries in a directory.
+    /// This is based on [`std::fs::read_dir`].
+    ///
+    /// [`std::fs::read_dir`]: https://doc.rust-lang.org/std/fs/fn.read_dir.html
+    fn read_dir<P: AsRef<Path>>(&self, path: P) -> Result<Self::ReadDir>;
 
     /// Writes `buf` to a new file at `path`.
     ///
@@ -174,3 +183,10 @@ pub trait TempFileSystem {
     /// Creates a new temporary directory.
     fn temp_dir<S: AsRef<str>>(&self, prefix: S) -> Result<Self::TempDir>;
 }
+
+pub trait DirEntry {
+    fn file_name(&self) -> OsString;
+    fn path(&self) -> PathBuf;
+}
+
+pub trait ReadDir<T: DirEntry>: Iterator<Item = Result<T>> {}
