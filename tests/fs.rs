@@ -24,16 +24,16 @@ macro_rules! test_fs {
         mod $name {
             use super::*;
 
-            make_test!(set_current_dir_fails_if_path_does_not_exists, $fs);
-            make_test!(set_current_dir_fails_if_path_is_a_file, $fs);
+            make_test!(set_current_dir_fails_if_node_does_not_exists, $fs);
+            make_test!(set_current_dir_fails_if_node_is_a_file, $fs);
 
-            make_test!(is_dir_returns_true_if_path_is_dir, $fs);
-            make_test!(is_dir_returns_false_if_path_is_file, $fs);
-            make_test!(is_dir_returns_false_if_path_does_not_exist, $fs);
+            make_test!(is_dir_returns_true_if_node_is_dir, $fs);
+            make_test!(is_dir_returns_false_if_node_is_file, $fs);
+            make_test!(is_dir_returns_false_if_node_does_not_exist, $fs);
 
-            make_test!(is_file_returns_true_if_path_is_file, $fs);
-            make_test!(is_file_returns_false_if_path_is_dir, $fs);
-            make_test!(is_file_returns_false_if_path_does_not_exist, $fs);
+            make_test!(is_file_returns_true_if_node_is_file, $fs);
+            make_test!(is_file_returns_false_if_node_is_dir, $fs);
+            make_test!(is_file_returns_false_if_node_does_not_exist, $fs);
 
             make_test!(create_dir_creates_new_dir, $fs);
             make_test!(create_dir_fails_if_dir_already_exists, $fs);
@@ -44,16 +44,16 @@ macro_rules! test_fs {
 
             make_test!(remove_dir_deletes_dir, $fs);
             make_test!(remove_dir_does_not_affect_parent, $fs);
-            make_test!(remove_dir_fails_if_path_does_not_exist, $fs);
-            make_test!(remove_dir_fails_if_path_is_a_file, $fs);
+            make_test!(remove_dir_fails_if_node_does_not_exist, $fs);
+            make_test!(remove_dir_fails_if_node_is_a_file, $fs);
             make_test!(remove_dir_fails_if_dir_is_not_empty, $fs);
 
             make_test!(remove_dir_all_removes_dir_and_contents, $fs);
-            make_test!(remove_dir_all_fails_if_path_is_a_file, $fs);
+            make_test!(remove_dir_all_fails_if_node_is_a_file, $fs);
 
             make_test!(read_dir_returns_dir_entries, $fs);
-            make_test!(read_dir_fails_if_path_does_not_exist, $fs);
-            make_test!(read_dir_fails_if_path_is_a_file, $fs);
+            make_test!(read_dir_fails_if_node_does_not_exist, $fs);
+            make_test!(read_dir_fails_if_node_is_a_file, $fs);
 
             make_test!(write_file_writes_to_new_file, $fs);
             make_test!(write_file_overwrites_contents_of_existing_file, $fs);
@@ -71,14 +71,14 @@ macro_rules! test_fs {
 
             make_test!(remove_file_removes_a_file, $fs);
             make_test!(remove_file_fails_if_file_does_not_exist, $fs);
-            make_test!(remove_file_fails_if_path_is_a_directory, $fs);
+            make_test!(remove_file_fails_if_node_is_a_directory, $fs);
 
             make_test!(copy_file_copies_a_file, $fs);
             make_test!(copy_file_overwrites_destination_file, $fs);
             make_test!(copy_file_fails_if_original_file_does_not_exist, $fs);
             make_test!(copy_file_fails_if_destination_file_is_readonly, $fs);
-            make_test!(copy_file_fails_if_original_path_is_directory, $fs);
-            make_test!(copy_file_fails_if_destination_path_is_directory, $fs);
+            make_test!(copy_file_fails_if_original_node_is_directory, $fs);
+            make_test!(copy_file_fails_if_destination_node_is_directory, $fs);
 
             make_test!(rename_renames_a_file, $fs);
             make_test!(rename_renames_a_directory, $fs);
@@ -89,21 +89,21 @@ macro_rules! test_fs {
             make_test!(rename_fails_if_destination_directory_is_not_empty, $fs);
 
             make_test!(readonly_returns_write_permission, $fs);
-            make_test!(readonly_fails_if_path_does_not_exist, $fs);
+            make_test!(readonly_fails_if_node_does_not_exist, $fs);
 
             make_test!(set_readonly_toggles_write_permission_of_file, $fs);
             make_test!(set_readonly_toggles_write_permission_of_dir, $fs);
-            make_test!(set_readonly_fails_if_path_does_not_exist, $fs);
+            make_test!(set_readonly_fails_if_node_does_not_exist, $fs);
 
             #[cfg(unix)]
             make_test!(mode_returns_permissions, $fs);
             #[cfg(unix)]
-            make_test!(mode_fails_if_path_does_not_exist, $fs);
+            make_test!(mode_fails_if_node_does_not_exist, $fs);
 
             #[cfg(unix)]
             make_test!(set_mode_sets_permissions, $fs);
             #[cfg(unix)]
-            make_test!(set_mode_fails_if_path_does_not_exist, $fs);
+            make_test!(set_mode_fails_if_node_does_not_exist, $fs);
 
             make_test!(temp_dir_creates_tempdir, $fs);
             make_test!(temp_dir_creates_unique_dir, $fs);
@@ -114,7 +114,7 @@ macro_rules! test_fs {
 test_fs!(os, OsFileSystem::new);
 test_fs!(fake, FakeFileSystem::new);
 
-fn set_current_dir_fails_if_path_does_not_exists<T: FileSystem>(fs: &T, parent: &Path) {
+fn set_current_dir_fails_if_node_does_not_exists<T: FileSystem>(fs: &T, parent: &Path) {
     let path = parent.join("does_not_exist");
 
     let result = fs.set_current_dir(path);
@@ -123,7 +123,7 @@ fn set_current_dir_fails_if_path_does_not_exists<T: FileSystem>(fs: &T, parent: 
     assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
 }
 
-fn set_current_dir_fails_if_path_is_a_file<T: FileSystem>(fs: &T, parent: &Path) {
+fn set_current_dir_fails_if_node_is_a_file<T: FileSystem>(fs: &T, parent: &Path) {
     let path = parent.join("file");
 
     fs.create_file(&path, "").unwrap();
@@ -134,7 +134,7 @@ fn set_current_dir_fails_if_path_is_a_file<T: FileSystem>(fs: &T, parent: &Path)
     assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
 }
 
-fn is_dir_returns_true_if_path_is_dir<T: FileSystem>(fs: &T, parent: &Path) {
+fn is_dir_returns_true_if_node_is_dir<T: FileSystem>(fs: &T, parent: &Path) {
     let path = parent.join("new_dir");
 
     fs.create_dir(&path).unwrap();
@@ -142,7 +142,7 @@ fn is_dir_returns_true_if_path_is_dir<T: FileSystem>(fs: &T, parent: &Path) {
     assert!(fs.is_dir(&path));
 }
 
-fn is_dir_returns_false_if_path_is_file<T: FileSystem>(fs: &T, parent: &Path) {
+fn is_dir_returns_false_if_node_is_file<T: FileSystem>(fs: &T, parent: &Path) {
     let path = parent.join("new_dir");
 
     fs.create_file(&path, "").unwrap();
@@ -150,11 +150,11 @@ fn is_dir_returns_false_if_path_is_file<T: FileSystem>(fs: &T, parent: &Path) {
     assert!(!fs.is_dir(&path));
 }
 
-fn is_dir_returns_false_if_path_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+fn is_dir_returns_false_if_node_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
     assert!(!fs.is_dir(parent.join("does_not_exist")));
 }
 
-fn is_file_returns_true_if_path_is_file<T: FileSystem>(fs: &T, parent: &Path) {
+fn is_file_returns_true_if_node_is_file<T: FileSystem>(fs: &T, parent: &Path) {
     let path = parent.join("new_file");
 
     fs.create_file(&path, "").unwrap();
@@ -162,7 +162,7 @@ fn is_file_returns_true_if_path_is_file<T: FileSystem>(fs: &T, parent: &Path) {
     assert!(fs.is_file(&path));
 }
 
-fn is_file_returns_false_if_path_is_dir<T: FileSystem>(fs: &T, parent: &Path) {
+fn is_file_returns_false_if_node_is_dir<T: FileSystem>(fs: &T, parent: &Path) {
     let path = parent.join("new_dir");
 
     fs.create_dir(&path).unwrap();
@@ -170,7 +170,7 @@ fn is_file_returns_false_if_path_is_dir<T: FileSystem>(fs: &T, parent: &Path) {
     assert!(!fs.is_file(&path));
 }
 
-fn is_file_returns_false_if_path_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+fn is_file_returns_false_if_node_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
     assert!(!fs.is_file(parent.join("does_not_exist")));
 }
 
@@ -246,14 +246,14 @@ fn remove_dir_does_not_affect_parent<T: FileSystem>(fs: &T, parent: &Path) {
     assert!(!fs.is_dir(parent.join("child")));
 }
 
-fn remove_dir_fails_if_path_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+fn remove_dir_fails_if_node_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
     let result = fs.remove_dir(parent.join("does_not_exist"));
 
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
 }
 
-fn remove_dir_fails_if_path_is_a_file<T: FileSystem>(fs: &T, parent: &Path) {
+fn remove_dir_fails_if_node_is_a_file<T: FileSystem>(fs: &T, parent: &Path) {
     let path = parent.join("file");
 
     fs.create_file(&path, "").unwrap();
@@ -295,7 +295,7 @@ fn remove_dir_all_removes_dir_and_contents<T: FileSystem>(fs: &T, parent: &Path)
     assert!(fs.is_dir(parent));
 }
 
-fn remove_dir_all_fails_if_path_is_a_file<T: FileSystem>(fs: &T, parent: &Path) {
+fn remove_dir_all_fails_if_node_is_a_file<T: FileSystem>(fs: &T, parent: &Path) {
     let path = parent.join("file");
 
     fs.create_file(&path, "").unwrap();
@@ -331,7 +331,7 @@ fn read_dir_returns_dir_entries<T: FileSystem>(fs: &T, parent: &Path) {
     assert_eq!(&entries, expected_paths);
 }
 
-fn read_dir_fails_if_path_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+fn read_dir_fails_if_node_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
     let path = parent.join("does_not_exist");
     let result = fs.read_dir(&path);
 
@@ -343,7 +343,7 @@ fn read_dir_fails_if_path_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
     }
 }
 
-fn read_dir_fails_if_path_is_a_file<T: FileSystem>(fs: &T, parent: &Path) {
+fn read_dir_fails_if_node_is_a_file<T: FileSystem>(fs: &T, parent: &Path) {
     let path = parent.join("file");
 
     fs.create_file(&path, "").unwrap();
@@ -487,7 +487,7 @@ fn remove_file_fails_if_file_does_not_exist<T: FileSystem>(fs: &T, parent: &Path
     assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
 }
 
-fn remove_file_fails_if_path_is_a_directory<T: FileSystem>(fs: &T, parent: &Path) {
+fn remove_file_fails_if_node_is_a_directory<T: FileSystem>(fs: &T, parent: &Path) {
     let path = parent.join("test_dir");
 
     fs.create_dir(&path).unwrap();
@@ -556,7 +556,7 @@ fn copy_file_fails_if_destination_file_is_readonly<T: FileSystem>(fs: &T, parent
     assert_eq!(result.unwrap_err().kind(), ErrorKind::PermissionDenied);
 }
 
-fn copy_file_fails_if_original_path_is_directory<T: FileSystem>(fs: &T, parent: &Path) {
+fn copy_file_fails_if_original_node_is_directory<T: FileSystem>(fs: &T, parent: &Path) {
     let from = parent.join("from");
     let to = parent.join("to");
 
@@ -568,7 +568,7 @@ fn copy_file_fails_if_original_path_is_directory<T: FileSystem>(fs: &T, parent: 
     assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidInput);
 }
 
-fn copy_file_fails_if_destination_path_is_directory<T: FileSystem>(fs: &T, parent: &Path) {
+fn copy_file_fails_if_destination_node_is_directory<T: FileSystem>(fs: &T, parent: &Path) {
     let from = parent.join("from");
     let to = parent.join("to");
 
@@ -718,7 +718,7 @@ fn readonly_returns_write_permission<T: FileSystem>(fs: &T, parent: &Path) {
     assert!(result.unwrap());
 }
 
-fn readonly_fails_if_path_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+fn readonly_fails_if_node_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
     let result = fs.readonly(parent.join("does_not_exist"));
 
     assert!(result.is_err());
@@ -757,7 +757,7 @@ fn set_readonly_toggles_write_permission_of_dir<T: FileSystem>(fs: &T, parent: &
     assert!(fs.write_file(&path.join("file"), "").is_ok());
 }
 
-fn set_readonly_fails_if_path_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+fn set_readonly_fails_if_node_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
     let result = fs.set_readonly(parent.join("does_not_exist"), true);
 
     assert!(result.is_err());
@@ -797,7 +797,7 @@ fn mode_returns_permissions<T: FileSystem + UnixFileSystem>(fs: &T, parent: &Pat
 }
 
 #[cfg(unix)]
-fn mode_fails_if_path_does_not_exist<T: UnixFileSystem>(fs: &T, parent: &Path) {
+fn mode_fails_if_node_does_not_exist<T: UnixFileSystem>(fs: &T, parent: &Path) {
     let result = fs.mode(parent.join("does_not_exist"));
 
     assert!(result.is_err());
@@ -857,7 +857,7 @@ fn set_mode_sets_permissions<T: FileSystem + UnixFileSystem>(fs: &T, parent: &Pa
 }
 
 #[cfg(unix)]
-fn set_mode_fails_if_path_does_not_exist<T: UnixFileSystem>(fs: &T, parent: &Path) {
+fn set_mode_fails_if_node_does_not_exist<T: UnixFileSystem>(fs: &T, parent: &Path) {
     let result = fs.set_mode(parent.join("does_not_exist"), 0o644);
 
     assert!(result.is_err());
