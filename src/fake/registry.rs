@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use std::io::{Error, ErrorKind, Result};
 use std::path::{Path, PathBuf};
 
-use super::{Dir, FakeFile, File};
+use super::node::{Dir, Node, File};
 
 #[derive(Debug, Clone, Default)]
 pub struct Registry {
     cwd: PathBuf,
-    files: HashMap<PathBuf, FakeFile>,
+    files: HashMap<PathBuf, Node>,
 }
 
 impl Registry {
@@ -15,7 +15,7 @@ impl Registry {
         let cwd = PathBuf::from("/");
         let mut files = HashMap::new();
 
-        files.insert(cwd.clone(), FakeFile::Dir(Dir::new()));
+        files.insert(cwd.clone(), Node::Dir(Dir::new()));
 
         Registry {
             cwd: cwd,
@@ -38,15 +38,15 @@ impl Registry {
     }
 
     pub fn is_dir(&self, path: &Path) -> bool {
-        self.files.get(path).map(FakeFile::is_dir).unwrap_or(false)
+        self.files.get(path).map(Node::is_dir).unwrap_or(false)
     }
 
     pub fn is_file(&self, path: &Path) -> bool {
-        self.files.get(path).map(FakeFile::is_file).unwrap_or(false)
+        self.files.get(path).map(Node::is_file).unwrap_or(false)
     }
 
     pub fn create_dir(&mut self, path: &Path) -> Result<()> {
-        self.insert(path.to_path_buf(), FakeFile::Dir(Dir::new()))
+        self.insert(path.to_path_buf(), Node::Dir(Dir::new()))
     }
 
     pub fn create_dir_all(&mut self, path: &Path) -> Result<()> {
@@ -101,7 +101,7 @@ impl Registry {
     pub fn create_file(&mut self, path: &Path, buf: &[u8]) -> Result<()> {
         let file = File::new(buf.to_vec());
 
-        self.insert(path.to_path_buf(), FakeFile::File(file))
+        self.insert(path.to_path_buf(), Node::File(file))
     }
 
     pub fn write_file(&mut self, path: &Path, buf: &[u8]) -> Result<()> {
@@ -148,37 +148,34 @@ impl Registry {
 
     pub fn rename(&mut self, from: &Path, to: &Path) -> Result<()> {
         match (self.files.get(from), self.files.get(to)) {
-            (Some(&FakeFile::File(_)), Some(&FakeFile::File(_))) => {
+            (Some(&Node::File(_)), Some(&Node::File(_))) => {
                 self.remove_file(to)?;
                 self.rename_path(from, to.to_path_buf())
             }
-            (Some(&FakeFile::File(_)), None) => self.rename_path(from, to.to_path_buf()),
-            (Some(&FakeFile::Dir(_)), Some(&FakeFile::Dir(_)))
-                if self.descendants(to).is_empty() => {
+            (Some(&Node::File(_)), None) => self.rename_path(from, to.to_path_buf()),
+            (Some(&Node::Dir(_)), Some(&Node::Dir(_))) if self.descendants(to).is_empty() => {
                 self.remove(to)?;
                 self.move_dir(from, to)
             }
-            (Some(&FakeFile::File(_)), Some(&FakeFile::Dir(_))) |
-            (Some(&FakeFile::Dir(_)), Some(&FakeFile::File(_))) |
-            (Some(&FakeFile::Dir(_)), Some(&FakeFile::Dir(_))) => {
-                Err(create_error(ErrorKind::Other))
-            }
-            (Some(&FakeFile::Dir(_)), None) => self.move_dir(from, to),
+            (Some(&Node::File(_)), Some(&Node::Dir(_))) |
+            (Some(&Node::Dir(_)), Some(&Node::File(_))) |
+            (Some(&Node::Dir(_)), Some(&Node::Dir(_))) => Err(create_error(ErrorKind::Other)),
+            (Some(&Node::Dir(_)), None) => self.move_dir(from, to),
             (None, _) => Err(create_error(ErrorKind::NotFound)),
         }
     }
 
     pub fn readonly(&self, path: &Path) -> Result<bool> {
         match self.files.get(path) {
-            Some(&FakeFile::File(ref f)) => Ok(f.mode & 0o222 == 0),
-            Some(&FakeFile::Dir(ref d)) => Ok(d.mode & 0o222 == 0),
+            Some(&Node::File(ref f)) => Ok(f.mode & 0o222 == 0),
+            Some(&Node::Dir(ref d)) => Ok(d.mode & 0o222 == 0),
             None => Err(create_error(ErrorKind::NotFound)),
         }
     }
 
     pub fn set_readonly(&mut self, path: &Path, readonly: bool) -> Result<()> {
         match self.files.get_mut(path) {
-            Some(&mut FakeFile::File(ref mut f)) => {
+            Some(&mut Node::File(ref mut f)) => {
                 if readonly {
                     f.mode &= !0o222
                 } else {
@@ -187,7 +184,7 @@ impl Registry {
 
                 Ok(())
             }
-            Some(&mut FakeFile::Dir(ref mut d)) => {
+            Some(&mut Node::Dir(ref mut d)) => {
                 if readonly {
                     d.mode &= !0o222
                 } else {
@@ -202,19 +199,19 @@ impl Registry {
 
     pub fn mode(&self, path: &Path) -> Result<u32> {
         match self.files.get(path) {
-            Some(&FakeFile::File(ref f)) => Ok(f.mode),
-            Some(&FakeFile::Dir(ref d)) => Ok(d.mode),
+            Some(&Node::File(ref f)) => Ok(f.mode),
+            Some(&Node::Dir(ref d)) => Ok(d.mode),
             None => Err(create_error(ErrorKind::NotFound)),
         }
     }
 
     pub fn set_mode(&mut self, path: &Path, mode: u32) -> Result<()> {
         match self.files.get_mut(path) {
-            Some(&mut FakeFile::File(ref mut f)) => {
+            Some(&mut Node::File(ref mut f)) => {
                 f.mode = mode;
                 Ok(())
             }
-            Some(&mut FakeFile::Dir(ref mut d)) => {
+            Some(&mut Node::Dir(ref mut d)) => {
                 d.mode = mode;
                 Ok(())
             }
@@ -224,7 +221,7 @@ impl Registry {
 
     fn get_dir(&self, path: &Path) -> Result<&Dir> {
         match self.files.get(path) {
-            Some(&FakeFile::Dir(ref dir)) => Ok(dir),
+            Some(&Node::Dir(ref dir)) => Ok(dir),
             Some(_) => Err(create_error(ErrorKind::Other)),
             None => Err(create_error(ErrorKind::NotFound)),
         }
@@ -232,7 +229,7 @@ impl Registry {
 
     fn get_dir_mut(&mut self, path: &Path) -> Result<&mut Dir> {
         match self.files.get_mut(path) {
-            Some(&mut FakeFile::Dir(ref mut dir)) => {
+            Some(&mut Node::Dir(ref mut dir)) => {
                 if dir.mode & 0o222 == 0 {
                     Err(create_error(ErrorKind::PermissionDenied))
                 } else {
@@ -246,7 +243,7 @@ impl Registry {
 
     fn get_file(&self, path: &Path) -> Result<&File> {
         match self.files.get(path) {
-            Some(&FakeFile::File(ref file)) => Ok(file),
+            Some(&Node::File(ref file)) => Ok(file),
             Some(_) => Err(create_error(ErrorKind::Other)),
             None => Err(create_error(ErrorKind::NotFound)),
         }
@@ -254,7 +251,7 @@ impl Registry {
 
     fn get_file_mut(&mut self, path: &Path) -> Result<&mut File> {
         match self.files.get_mut(path) {
-            Some(&mut FakeFile::File(ref mut file)) => {
+            Some(&mut Node::File(ref mut file)) => {
                 if file.mode & 0o222 == 0 {
                     Err(create_error(ErrorKind::PermissionDenied))
                 } else {
@@ -266,7 +263,7 @@ impl Registry {
         }
     }
 
-    fn insert(&mut self, path: PathBuf, file: FakeFile) -> Result<()> {
+    fn insert(&mut self, path: PathBuf, file: Node) -> Result<()> {
         if self.files.contains_key(&path) {
             return Err(create_error(ErrorKind::AlreadyExists));
         } else if let Some(p) = path.parent() {
@@ -278,7 +275,7 @@ impl Registry {
         Ok(())
     }
 
-    fn remove(&mut self, path: &Path) -> Result<FakeFile> {
+    fn remove(&mut self, path: &Path) -> Result<Node> {
         match self.files.remove(path) {
             Some(f) => Ok(f),
             None => Err(create_error(ErrorKind::NotFound)),

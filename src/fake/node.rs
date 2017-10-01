@@ -25,22 +25,22 @@ impl Dir {
 }
 
 #[derive(Debug, Clone)]
-pub enum FakeFile {
+pub enum Node {
     File(File),
     Dir(Dir),
 }
 
-impl FakeFile {
+impl Node {
     pub fn is_file(&self) -> bool {
         match *self {
-            FakeFile::File(_) => true,
+            Node::File(_) => true,
             _ => false,
         }
     }
 
     pub fn is_dir(&self) -> bool {
         match *self {
-            FakeFile::Dir(_) => true,
+            Node::Dir(_) => true,
             _ => false,
         }
     }

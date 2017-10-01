@@ -15,10 +15,9 @@ use {TempDir, TempFileSystem};
 #[cfg(feature = "temp")]
 pub use self::tempdir::FakeTempDir;
 
-use self::file::{Dir, FakeFile, File};
 use self::registry::Registry;
 
-mod file;
+mod node;
 mod registry;
 #[cfg(feature = "temp")]
 mod tempdir;
