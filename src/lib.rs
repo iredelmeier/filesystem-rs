@@ -92,6 +92,18 @@ pub trait FileSystem {
     where
         P: AsRef<Path>,
         B: AsRef<[u8]>;
+    /// Writes `buf` to an existing file at `buf`.
+    /// This will overwrite any contents that already exist.
+    ///
+    /// # Errors
+    ///
+    /// * No file `file` does not exist.
+    /// * The node at `file` is a directory.
+    /// * Current user has insufficient permissions.
+    fn overwrite_file<P, B>(&self, path: P, buf: B) -> Result<()>
+    where
+        P: AsRef<Path>,
+        B: AsRef<[u8]>;
     /// Returns the contents of `path`.
     ///
     /// * Errors

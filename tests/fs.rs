@@ -58,6 +58,12 @@ macro_rules! test_fs {
             make_test!(write_file_writes_to_new_file, $fs);
             make_test!(write_file_overwrites_contents_of_existing_file, $fs);
             make_test!(write_file_fails_if_file_is_readonly, $fs);
+            make_test!(write_file_fails_if_node_is_a_directory, $fs);
+
+            make_test!(overwrite_file_overwrites_contents_of_existing_file, $fs);
+            make_test!(overwrite_file_fails_if_node_does_not_exist, $fs);
+            make_test!(overwrite_file_fails_if_file_is_readonly, $fs);
+            make_test!(overwrite_file_fails_if_node_is_a_directory, $fs);
 
             make_test!(read_file_returns_contents_as_bytes, $fs);
             make_test!(read_file_fails_if_file_does_not_exist, $fs);
@@ -392,6 +398,62 @@ fn write_file_fails_if_file_is_readonly<T: FileSystem>(fs: &T, parent: &Path) {
 
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().kind(), ErrorKind::PermissionDenied);
+}
+
+fn write_file_fails_if_node_is_a_directory<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test_dir");
+
+    fs.create_dir(&path).unwrap();
+
+    let result = fs.write_file(&path, "test contents");
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
+}
+
+fn overwrite_file_overwrites_contents_of_existing_file<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test_file");
+
+    fs.write_file(&path, "old contents").unwrap();
+
+    let result = fs.overwrite_file(&path, "new contents");
+
+    assert!(result.is_ok());
+
+    let contents = String::from_utf8(fs.read_file(path).unwrap()).unwrap();
+
+    assert_eq!(&contents, "new contents");
+}
+
+fn overwrite_file_fails_if_node_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("new_file");
+    let result = fs.overwrite_file(&path, "new contents");
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
+}
+
+fn overwrite_file_fails_if_file_is_readonly<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test_file");
+
+    fs.create_file(&path, "").unwrap();
+    fs.set_readonly(&path, true).unwrap();
+
+    let result = fs.overwrite_file(&path, "test contents");
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::PermissionDenied);
+}
+
+fn overwrite_file_fails_if_node_is_a_directory<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test_dir");
+
+    fs.create_dir(&path).unwrap();
+
+    let result = fs.overwrite_file(&path, "test contents");
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
 }
 
 fn read_file_returns_contents_as_bytes<T: FileSystem>(fs: &T, parent: &Path) {

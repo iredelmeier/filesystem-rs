@@ -94,6 +94,7 @@ pub struct MockFileSystem {
     pub read_dir: Mock<PathBuf, Result<Vec<Result<DirEntry, FakeError>>, FakeError>>,
 
     pub write_file: Mock<(PathBuf, Vec<u8>), Result<(), FakeError>>,
+    pub overwrite_file: Mock<(PathBuf, Vec<u8>), Result<(), FakeError>>,
     pub read_file: Mock<(PathBuf), Result<Vec<u8>, FakeError>>,
     pub read_file_to_string: Mock<(PathBuf), Result<String, FakeError>>,
     pub create_file: Mock<(PathBuf, Vec<u8>), Result<(), FakeError>>,
@@ -122,6 +123,7 @@ impl MockFileSystem {
             read_dir: Mock::new(Ok(vec![])),
 
             write_file: Mock::new(Ok(())),
+            overwrite_file: Mock::new(Ok(())),
             read_file: Mock::new(Ok(vec![])),
             read_file_to_string: Mock::new(Ok(String::new())),
             create_file: Mock::new(Ok(())),
@@ -208,6 +210,16 @@ impl FileSystem for MockFileSystem {
         B: AsRef<[u8]>,
     {
         self.write_file
+            .call((path.as_ref().to_path_buf(), buf.as_ref().to_vec()))
+            .map_err(Error::from)
+    }
+
+    fn overwrite_file<P, B>(&self, path: P, buf: B) -> Result<(), Error>
+    where
+        P: AsRef<Path>,
+        B: AsRef<[u8]>,
+    {
+        self.overwrite_file
             .call((path.as_ref().to_path_buf(), buf.as_ref().to_vec()))
             .map_err(Error::from)
     }

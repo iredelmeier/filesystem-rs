@@ -114,6 +114,12 @@ impl Registry {
             })
     }
 
+    pub fn overwrite_file(&mut self, path: &Path, buf: &[u8]) -> Result<()> {
+        self.get_file_mut(path).map(
+            |ref mut f| f.contents = buf.to_vec(),
+        )
+    }
+
     pub fn read_file(&self, path: &Path) -> Result<Vec<u8>> {
         match self.get_file(path) {
             Ok(f) if f.mode & 0o444 != 0 => Ok(f.contents.clone()),
