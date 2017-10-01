@@ -779,21 +779,21 @@ fn mode_returns_permissions<T: FileSystem + UnixFileSystem>(fs: &T, parent: &Pat
     let result = fs.mode(&path);
 
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), 0o644);
+    assert_eq!(result.unwrap() % 0o100_000, 0o644);
 
     fs.set_mode(&path, 0o600).unwrap();
 
     let result = fs.mode(&path);
 
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), 0o600);
+    assert_eq!(result.unwrap() % 0o100_000, 0o600);
 
     fs.set_readonly(&path, true).unwrap();
 
     let result = fs.mode(&path);
 
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), 0o400);
+    assert_eq!(result.unwrap() % 0o100_000, 0o400);
 }
 
 #[cfg(unix)]
