@@ -1,6 +1,6 @@
 [package]
 name = "filesystem"
-version = "0.4.0"
+version = "0.4.1"
 description = "Real, fake, and mock implementations of file system operations"
 authors = ["Isobel Redelmeier <iredelmeier@gmail.com>"]
 license = "MIT"
