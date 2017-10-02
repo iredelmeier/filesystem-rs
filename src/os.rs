@@ -99,7 +99,7 @@ impl FileSystem for OsFileSystem {
         P: AsRef<Path>,
         B: AsRef<[u8]>,
     {
-        let mut file = OpenOptions::new().write(true).open(path)?;
+        let mut file = OpenOptions::new().write(true).truncate(true).open(path)?;
         file.write_all(buf.as_ref())
     }
 
