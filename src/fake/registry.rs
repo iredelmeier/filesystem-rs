@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::{Error, ErrorKind, Result};
 use std::path::{Path, PathBuf};
 
-use super::node::{Dir, Node, File};
+use super::node::{Dir, File, Node};
 
 #[derive(Debug, Clone, Default)]
 pub struct Registry {
@@ -107,17 +107,18 @@ impl Registry {
     pub fn write_file(&mut self, path: &Path, buf: &[u8]) -> Result<()> {
         self.get_file_mut(path)
             .map(|ref mut f| f.contents = buf.to_vec())
-            .or_else(|e| if e.kind() == ErrorKind::NotFound {
-                self.create_file(path, buf)
-            } else {
-                Err(e)
+            .or_else(|e| {
+                if e.kind() == ErrorKind::NotFound {
+                    self.create_file(path, buf)
+                } else {
+                    Err(e)
+                }
             })
     }
 
     pub fn overwrite_file(&mut self, path: &Path, buf: &[u8]) -> Result<()> {
-        self.get_file_mut(path).map(
-            |ref mut f| f.contents = buf.to_vec(),
-        )
+        self.get_file_mut(path)
+            .map(|ref mut f| f.contents = buf.to_vec())
     }
 
     pub fn read_file(&self, path: &Path) -> Result<Vec<u8>> {
@@ -163,9 +164,9 @@ impl Registry {
                 self.remove(to)?;
                 self.move_dir(from, to)
             }
-            (Some(&Node::File(_)), Some(&Node::Dir(_))) |
-            (Some(&Node::Dir(_)), Some(&Node::File(_))) |
-            (Some(&Node::Dir(_)), Some(&Node::Dir(_))) => Err(create_error(ErrorKind::Other)),
+            (Some(&Node::File(_)), Some(&Node::Dir(_)))
+            | (Some(&Node::Dir(_)), Some(&Node::File(_)))
+            | (Some(&Node::Dir(_)), Some(&Node::Dir(_))) => Err(create_error(ErrorKind::Other)),
             (Some(&Node::Dir(_)), None) => self.move_dir(from, to),
             (None, _) => Err(create_error(ErrorKind::NotFound)),
         }

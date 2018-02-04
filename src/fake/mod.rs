@@ -70,7 +70,6 @@ impl Iterator for ReadDir {
 
 impl ::ReadDir<DirEntry> for ReadDir {}
 
-
 /// An in-memory file system.
 #[derive(Clone, Debug, Default)]
 pub struct FakeFileSystem {
@@ -81,7 +80,9 @@ impl FakeFileSystem {
     pub fn new() -> Self {
         let registry = Registry::new();
 
-        FakeFileSystem { registry: Arc::new(Mutex::new(registry)) }
+        FakeFileSystem {
+            registry: Arc::new(Mutex::new(registry)),
+        }
     }
 
     fn apply<F, T>(&self, path: &Path, f: F) -> T
@@ -247,11 +248,9 @@ impl FileSystem for FakeFileSystem {
         P: AsRef<Path>,
         Q: AsRef<Path>,
     {
-        self.apply_mut_from_to(
-            from.as_ref(),
-            to.as_ref(),
-            |r, from, to| r.copy_file(from, to),
-        )
+        self.apply_mut_from_to(from.as_ref(), to.as_ref(), |r, from, to| {
+            r.copy_file(from, to)
+        })
     }
 
     fn rename<P, Q>(&self, from: P, to: Q) -> Result<()>
