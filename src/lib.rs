@@ -106,7 +106,7 @@ pub trait FileSystem {
         B: AsRef<[u8]>;
     /// Returns the contents of `path`.
     ///
-    /// * Errors
+    /// # Errors
     ///
     /// * `path` does not exist.
     /// * `path` is a directory.
@@ -114,7 +114,7 @@ pub trait FileSystem {
     fn read_file<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>>;
     /// Returns the contents of `path` as a string.
     ///
-    /// * Errors
+    /// # Errors
     ///
     /// * `path` does not exist.
     /// * `path` is a directory.
@@ -147,14 +147,14 @@ pub trait FileSystem {
 
     /// Returns `true` if `path` is a readonly file.
     ///
-    /// * Errors
+    /// # Errors
     ///
     /// * `path` does not exist.
     /// * Current user has insufficient permissions.
     fn readonly<P: AsRef<Path>>(&self, path: P) -> Result<bool>;
     /// Sets or unsets the readonly flag of `path`.
     ///
-    /// * Errors
+    /// # Errors
     ///
     /// * `path` does not exist.
     /// * Current user has insufficient permissions.
@@ -165,14 +165,14 @@ pub trait FileSystem {
 pub trait UnixFileSystem {
     /// Returns the current mode bits of `path`.
     ///
-    /// * Errors
+    /// # Errors
     ///
     /// * `path` does not exist.
     /// * Current user has insufficient permissions.
     fn mode<P: AsRef<Path>>(&self, path: P) -> Result<u32>;
     /// Sets the mode bits of `path`.
     ///
-    /// * Errors
+    /// # Errors
     ///
     /// * `path` does not exist.
     /// * Current user has insufficient permissions.
