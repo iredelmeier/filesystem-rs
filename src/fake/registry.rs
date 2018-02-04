@@ -226,6 +226,14 @@ impl Registry {
         }
     }
 
+    pub fn len(&self, path: &Path) -> u64 {
+        match self.files.get(path) {
+            Some(&Node::File(ref f)) => f.contents.len() as u64,
+            Some(&Node::Dir(_)) => 4096,
+            None => 0,
+        }
+    }
+
     fn get_dir(&self, path: &Path) -> Result<&Dir> {
         match self.files.get(path) {
             Some(&Node::Dir(ref dir)) => Ok(dir),

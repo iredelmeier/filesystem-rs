@@ -159,6 +159,10 @@ pub trait FileSystem {
     /// * `path` does not exist.
     /// * Current user has insufficient permissions.
     fn set_readonly<P: AsRef<Path>>(&self, path: P, readonly: bool) -> Result<()>;
+
+    /// Returns the length of the node at the path
+    /// or 0 if the node does not exist.
+    fn len<P: AsRef<Path>>(&self, path: P) -> u64;
 }
 
 #[cfg(unix)]

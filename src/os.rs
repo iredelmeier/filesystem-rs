@@ -162,6 +162,10 @@ impl FileSystem for OsFileSystem {
 
         fs::set_permissions(path, permissions)
     }
+
+    fn len<P: AsRef<Path>>(&self, path: P) -> u64 {
+        fs::metadata(path.as_ref()).map(|md| md.len()).unwrap_or(0)
+    }
 }
 
 #[cfg(unix)]

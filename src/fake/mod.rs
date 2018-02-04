@@ -268,6 +268,10 @@ impl FileSystem for FakeFileSystem {
     fn set_readonly<P: AsRef<Path>>(&self, path: P, readonly: bool) -> Result<()> {
         self.apply_mut(path.as_ref(), |r, p| r.set_readonly(p, readonly))
     }
+
+    fn len<P: AsRef<Path>>(&self, path: P) -> u64 {
+        self.apply(path.as_ref(), |r, p| r.len(p))
+    }
 }
 
 #[cfg(unix)]

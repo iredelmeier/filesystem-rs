@@ -105,6 +105,8 @@ pub struct MockFileSystem {
 
     pub readonly: Mock<(PathBuf), Result<bool, FakeError>>,
     pub set_readonly: Mock<(PathBuf, bool), Result<(), FakeError>>,
+
+    pub len: Mock<(PathBuf), u64>,
 }
 
 impl MockFileSystem {
@@ -134,6 +136,8 @@ impl MockFileSystem {
 
             readonly: Mock::new(Ok(false)),
             set_readonly: Mock::new(Ok(())),
+
+            len: Mock::new(u64::default()),
         }
     }
 }
@@ -282,5 +286,9 @@ impl FileSystem for MockFileSystem {
         self.set_readonly
             .call((path.as_ref().to_path_buf(), readonly))
             .map_err(Error::from)
+    }
+
+    fn len<P: AsRef<Path>>(&self, path: P) -> u64 {
+        self.len.call(path.as_ref().to_path_buf())
     }
 }

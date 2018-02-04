@@ -101,6 +101,10 @@ macro_rules! test_fs {
             make_test!(set_readonly_toggles_write_permission_of_dir, $fs);
             make_test!(set_readonly_fails_if_node_does_not_exist, $fs);
 
+            make_test!(len_returns_size_of_file, $fs);
+            make_test!(len_returns_size_of_directory, $fs);
+            make_test!(len_returns_0_if_node_does_not_exist, $fs);
+
             #[cfg(unix)]
             make_test!(mode_returns_permissions, $fs);
             #[cfg(unix)]
@@ -829,6 +833,43 @@ fn set_readonly_fails_if_node_does_not_exist<T: FileSystem>(fs: &T, parent: &Pat
 
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
+}
+
+fn len_returns_size_of_file<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("file");
+    let result = fs.create_file(&path, "");
+
+    assert!(result.is_ok());
+
+    let len = fs.len(&path);
+
+    assert_eq!(len, 0);
+
+    let result = fs.write_file(&path, "contents");
+
+    assert!(result.is_ok());
+
+    let len = fs.len(&path);
+
+    assert_eq!(len, 8);
+}
+
+fn len_returns_size_of_directory<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("directory");
+    let result = fs.create_dir(&path);
+
+    assert!(result.is_ok());
+
+    let len = fs.len(&path);
+
+    assert_ne!(len, 0);
+}
+
+fn len_returns_0_if_node_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("does-not-exist");
+    let len = fs.len(&path);
+
+    assert_eq!(len, 0);
 }
 
 #[cfg(unix)]
