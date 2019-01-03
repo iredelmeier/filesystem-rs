@@ -9,10 +9,10 @@ use std::ffi::OsString;
 use std::io::Result;
 use std::path::{Path, PathBuf};
 
-#[cfg(any(feature = "mock", test))]
-pub use mock::{FakeError, MockFileSystem};
 #[cfg(feature = "fake")]
 pub use fake::{FakeFileSystem, FakeTempDir};
+#[cfg(any(feature = "mock", test))]
+pub use mock::{FakeError, MockFileSystem};
 pub use os::OsFileSystem;
 #[cfg(feature = "temp")]
 pub use os::OsTempDir;

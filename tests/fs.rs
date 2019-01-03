@@ -3,9 +3,9 @@ extern crate filesystem;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
-use filesystem::{DirEntry, FakeFileSystem, FileSystem, OsFileSystem, TempDir, TempFileSystem};
 #[cfg(unix)]
 use filesystem::UnixFileSystem;
+use filesystem::{DirEntry, FakeFileSystem, FileSystem, OsFileSystem, TempDir, TempFileSystem};
 
 macro_rules! make_test {
     ($test:ident, $fs:expr) => {
@@ -16,7 +16,7 @@ macro_rules! make_test {
 
             super::$test(&fs, temp_dir.path());
         }
-    }
+    };
 }
 
 macro_rules! test_fs {
@@ -91,7 +91,10 @@ macro_rules! test_fs {
             make_test!(rename_overwrites_destination_file, $fs);
             make_test!(rename_overwrites_empty_destination_directory, $fs);
             make_test!(rename_fails_if_original_path_does_not_exist, $fs);
-            make_test!(rename_fails_if_original_and_destination_are_different_types, $fs);
+            make_test!(
+                rename_fails_if_original_and_destination_are_different_types,
+                $fs
+            );
             make_test!(rename_fails_if_destination_directory_is_not_empty, $fs);
 
             make_test!(readonly_returns_write_permission, $fs);
@@ -118,7 +121,7 @@ macro_rules! test_fs {
             make_test!(temp_dir_creates_tempdir, $fs);
             make_test!(temp_dir_creates_unique_dir, $fs);
         }
-    }
+    };
 }
 
 test_fs!(os, OsFileSystem::new);
