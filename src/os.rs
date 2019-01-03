@@ -9,11 +9,11 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "temp")]
 use tempdir;
 
+#[cfg(unix)]
+use UnixFileSystem;
 use {DirEntry, FileSystem, ReadDir};
 #[cfg(feature = "temp")]
 use {TempDir, TempFileSystem};
-#[cfg(unix)]
-use UnixFileSystem;
 
 /// Tracks a temporary directory that will be deleted once the struct goes out of scope.
 ///
