@@ -305,6 +305,14 @@ impl Registry {
             .collect()
     }
 
+    fn children(&self, path: &Path) -> Vec<PathBuf> {
+        self.files
+            .keys()
+            .filter(|p| p.parent().map(|parent| parent == path).unwrap_or(false))
+            .map(|p| p.to_path_buf())
+            .collect()
+    }
+
     fn rename_path(&mut self, from: &Path, to: PathBuf) -> Result<()> {
         let file = self.remove(from)?;
         self.insert(to, file)
@@ -313,10 +321,11 @@ impl Registry {
     fn move_dir(&mut self, from: &Path, to: &Path) -> Result<()> {
         self.rename_path(from, to.to_path_buf())?;
 
-        for descendant in self.descendants(from) {
-            let stem = descendant.strip_prefix(from).unwrap_or(&descendant);
+        for child in self.children(from) {
+            let stem = child.strip_prefix(from).unwrap_or(&child);
             let new_path = to.join(stem);
-            self.rename_path(&descendant, new_path)?;
+
+            self.rename(&child, &new_path)?;
         }
 
         Ok(())
