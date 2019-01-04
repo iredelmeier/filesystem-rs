@@ -90,6 +90,7 @@ macro_rules! test_fs {
             make_test!(rename_renames_a_directory, $fs);
             make_test!(rename_overwrites_destination_file, $fs);
             make_test!(rename_overwrites_empty_destination_directory, $fs);
+            make_test!(rename_renames_all_descendants, $fs);
             make_test!(rename_fails_if_original_path_does_not_exist, $fs);
             make_test!(
                 rename_fails_if_original_and_destination_are_different_types,
@@ -722,6 +723,32 @@ fn rename_overwrites_empty_destination_directory<T: FileSystem>(fs: &T, parent: 
 
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), "child");
+}
+
+fn rename_renames_all_descendants<T: FileSystem>(fs: &T, parent: &Path) {
+    let from = parent.join("from");
+    let to = parent.join("to");
+    let child_file = from.join("child_file");
+    let child_dir = from.join("child_dir");
+    let grandchild = child_dir.join("grandchild");
+
+    fs.create_dir(&from).unwrap();
+    fs.create_file(&child_file, "child_file").unwrap();
+    fs.create_dir(&child_dir).unwrap();
+    fs.create_file(&grandchild, "grandchild").unwrap();
+
+    let result = fs.rename(&from, &to);
+
+    assert!(result.is_ok());
+    assert!(!fs.is_dir(&from));
+
+    let result = fs.read_file_to_string(to.join("child_file"));
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "child_file");
+
+    let result = fs.read_file_to_string(to.join("child_dir").join("grandchild"));
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "grandchild");
 }
 
 fn rename_fails_if_original_path_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
