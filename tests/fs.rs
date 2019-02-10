@@ -72,6 +72,9 @@ macro_rules! test_fs {
             make_test!(read_file_to_string_fails_if_file_does_not_exist, $fs);
             make_test!(read_file_to_string_fails_if_contents_are_not_utf8, $fs);
 
+            make_test!(read_file_into_writes_bytes_to_buffer, $fs);
+            make_test!(read_file_into_fails_if_file_does_not_exist, $fs);
+
             make_test!(create_file_writes_writes_to_new_file, $fs);
             make_test!(create_file_fails_if_file_already_exists, $fs);
 
@@ -515,6 +518,29 @@ fn read_file_to_string_fails_if_contents_are_not_utf8<T: FileSystem>(fs: &T, par
 
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidData);
+}
+
+fn read_file_into_writes_bytes_to_buffer<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test.txt");
+    let text = "test text";
+
+    fs.write_file(&path, text).unwrap();
+    let mut buf = Vec::new();
+
+    let result = fs.read_file_into(&path, &mut buf);
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), text.as_bytes().len());
+    assert_eq!(buf, br"test text");
+}
+
+fn read_file_into_fails_if_file_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test.txt");
+
+    let result = fs.read_file_into(&path, &mut Vec::new());
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
 }
 
 fn create_file_writes_writes_to_new_file<T: FileSystem>(fs: &T, parent: &Path) {

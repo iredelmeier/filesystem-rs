@@ -136,6 +136,17 @@ impl Registry {
         }
     }
 
+    pub fn read_file_into(&self, path: &Path, buf: &mut Vec<u8>) -> Result<usize> {
+        match self.get_file(path) {
+            Ok(f) if f.mode & 0o444 != 0 => {
+                buf.extend(&f.contents);
+                Ok(f.contents.len())
+            }
+            Ok(_) => Err(create_error(ErrorKind::PermissionDenied)),
+            Err(err) => Err(err),
+        }
+    }
+
     pub fn remove_file(&mut self, path: &Path) -> Result<()> {
         match self.get_file(path) {
             Ok(_) => self.remove(path).and(Ok(())),

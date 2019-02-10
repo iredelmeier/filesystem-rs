@@ -112,6 +112,15 @@ impl FileSystem for OsFileSystem {
         Ok(contents)
     }
 
+    fn read_file_into<P, B>(&self, path: P, mut buf: B) -> Result<usize>
+    where
+        P: AsRef<Path>,
+        B: AsMut<Vec<u8>>,
+    {
+        let mut file = File::open(path)?;
+        file.read_to_end(buf.as_mut())
+    }
+
     fn read_file_to_string<P: AsRef<Path>>(&self, path: P) -> Result<String> {
         let mut contents = String::new();
         let mut file = File::open(path)?;
