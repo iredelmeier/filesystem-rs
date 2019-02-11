@@ -95,7 +95,7 @@ impl Registry {
     pub fn read_dir(&self, path: &Path) -> Result<Vec<PathBuf>> {
         self.get_dir(path)?;
 
-        Ok(self.descendants(path))
+        Ok(self.children(path))
     }
 
     pub fn create_file(&mut self, path: &Path, buf: &[u8]) -> Result<()> {
