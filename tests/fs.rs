@@ -326,11 +326,15 @@ fn read_dir_returns_dir_entries<T: FileSystem>(fs: &T, parent: &Path) {
     let file2 = parent.join("file2");
     let dir1 = parent.join("dir1");
     let dir2 = parent.join("dir2");
+    let file3 = dir1.join("file3");
+    let file4 = dir2.join("file4");
 
     fs.create_file(&file1, "").unwrap();
     fs.create_file(&file2, "").unwrap();
     fs.create_dir(&dir1).unwrap();
     fs.create_dir(&dir2).unwrap();
+    fs.create_file(&file3, "").unwrap();
+    fs.create_file(&file4, "").unwrap();
 
     let result = fs.read_dir(parent);
 
