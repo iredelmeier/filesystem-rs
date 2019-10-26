@@ -29,7 +29,7 @@ impl DirEntry {
     }
 }
 
-impl ::DirEntry for DirEntry {
+impl crate::DirEntry for DirEntry {
     fn path(&self) -> PathBuf {
         self.file_name.clone()
     }
@@ -62,7 +62,7 @@ impl Iterator for ReadDir {
     }
 }
 
-impl ::ReadDir<DirEntry> for ReadDir {}
+impl crate::ReadDir<DirEntry> for ReadDir {}
 
 impl From<Error> for FakeError {
     fn from(err: Error) -> Self {
