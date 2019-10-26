@@ -177,6 +177,13 @@ pub trait FileSystem {
     fn len<P: AsRef<Path>>(&self, path: P) -> u64;
 }
 
+pub trait DirEntry {
+    fn file_name(&self) -> OsString;
+    fn path(&self) -> PathBuf;
+}
+
+pub trait ReadDir<T: DirEntry>: Iterator<Item = Result<T>> {}
+
 #[cfg(unix)]
 pub trait UnixFileSystem {
     /// Returns the current mode bits of `path`.
@@ -211,10 +218,3 @@ pub trait TempFileSystem {
     /// Creates a new temporary directory.
     fn temp_dir<S: AsRef<str>>(&self, prefix: S) -> Result<Self::TempDir>;
 }
-
-pub trait DirEntry {
-    fn file_name(&self) -> OsString;
-    fn path(&self) -> PathBuf;
-}
-
-pub trait ReadDir<T: DirEntry>: Iterator<Item = Result<T>> {}

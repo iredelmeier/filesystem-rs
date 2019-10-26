@@ -22,54 +22,6 @@ mod registry;
 #[cfg(feature = "temp")]
 mod tempdir;
 
-#[derive(Debug, Clone)]
-pub struct DirEntry {
-    parent: PathBuf,
-    file_name: OsString,
-}
-
-impl DirEntry {
-    fn new<P, S>(parent: P, file_name: S) -> Self
-    where
-        P: AsRef<Path>,
-        S: AsRef<OsStr>,
-    {
-        DirEntry {
-            parent: parent.as_ref().to_path_buf(),
-            file_name: file_name.as_ref().to_os_string(),
-        }
-    }
-}
-
-impl crate::DirEntry for DirEntry {
-    fn file_name(&self) -> OsString {
-        self.file_name.clone()
-    }
-
-    fn path(&self) -> PathBuf {
-        self.parent.join(&self.file_name)
-    }
-}
-
-#[derive(Debug)]
-pub struct ReadDir(IntoIter<Result<DirEntry>>);
-
-impl ReadDir {
-    fn new(entries: Vec<Result<DirEntry>>) -> Self {
-        ReadDir(entries.into_iter())
-    }
-}
-
-impl Iterator for ReadDir {
-    type Item = Result<DirEntry>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
-    }
-}
-
-impl crate::ReadDir<DirEntry> for ReadDir {}
-
 /// An in-memory file system.
 #[derive(Clone, Debug, Default)]
 pub struct FakeFileSystem {
@@ -281,6 +233,54 @@ impl FileSystem for FakeFileSystem {
         self.apply(path.as_ref(), |r, p| r.len(p))
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct DirEntry {
+    parent: PathBuf,
+    file_name: OsString,
+}
+
+impl DirEntry {
+    fn new<P, S>(parent: P, file_name: S) -> Self
+    where
+        P: AsRef<Path>,
+        S: AsRef<OsStr>,
+    {
+        DirEntry {
+            parent: parent.as_ref().to_path_buf(),
+            file_name: file_name.as_ref().to_os_string(),
+        }
+    }
+}
+
+impl crate::DirEntry for DirEntry {
+    fn file_name(&self) -> OsString {
+        self.file_name.clone()
+    }
+
+    fn path(&self) -> PathBuf {
+        self.parent.join(&self.file_name)
+    }
+}
+
+#[derive(Debug)]
+pub struct ReadDir(IntoIter<Result<DirEntry>>);
+
+impl ReadDir {
+    fn new(entries: Vec<Result<DirEntry>>) -> Self {
+        ReadDir(entries.into_iter())
+    }
+}
+
+impl Iterator for ReadDir {
+    type Item = Result<DirEntry>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl crate::ReadDir<DirEntry> for ReadDir {}
 
 #[cfg(unix)]
 impl UnixFileSystem for FakeFileSystem {

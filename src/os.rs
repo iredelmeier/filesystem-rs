@@ -177,6 +177,18 @@ impl FileSystem for OsFileSystem {
     }
 }
 
+impl DirEntry for fs::DirEntry {
+    fn file_name(&self) -> OsString {
+        self.file_name()
+    }
+
+    fn path(&self) -> PathBuf {
+        self.path()
+    }
+}
+
+impl ReadDir<fs::DirEntry> for fs::ReadDir {}
+
 #[cfg(unix)]
 impl UnixFileSystem for OsFileSystem {
     fn mode<P: AsRef<Path>>(&self, path: P) -> Result<u32> {
@@ -200,18 +212,6 @@ impl TempFileSystem for OsFileSystem {
         tempdir::TempDir::new(prefix.as_ref()).map(OsTempDir)
     }
 }
-
-impl DirEntry for fs::DirEntry {
-    fn file_name(&self) -> OsString {
-        self.file_name()
-    }
-
-    fn path(&self) -> PathBuf {
-        self.path()
-    }
-}
-
-impl ReadDir<fs::DirEntry> for fs::ReadDir {}
 
 fn permissions(path: &Path) -> Result<Permissions> {
     let metadata = fs::metadata(path)?;
