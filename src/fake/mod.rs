@@ -41,7 +41,7 @@ impl DirEntry {
     }
 }
 
-impl ::DirEntry for DirEntry {
+impl crate::DirEntry for DirEntry {
     fn file_name(&self) -> OsString {
         self.file_name.clone()
     }
@@ -68,7 +68,7 @@ impl Iterator for ReadDir {
     }
 }
 
-impl ::ReadDir<DirEntry> for ReadDir {}
+impl crate::ReadDir<DirEntry> for ReadDir {}
 
 /// An in-memory file system.
 #[derive(Clone, Debug, Default)]
