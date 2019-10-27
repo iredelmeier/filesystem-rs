@@ -81,8 +81,13 @@ impl Registry {
         self.get_dir_mut(path)?;
 
         let descendants = self.descendants(path);
+        let all_readable = descendants.iter().all(|(_, mode)| mode & 0o444 != 0);
 
-        for child in descendants {
+        if !all_readable {
+            return Err(create_error(ErrorKind::PermissionDenied));
+        }
+
+        for (child, _) in descendants {
             self.remove(&child)?;
         }
 
@@ -295,11 +300,19 @@ impl Registry {
         }
     }
 
-    fn descendants(&self, path: &Path) -> Vec<PathBuf> {
+    fn descendants(&self, path: &Path) -> Vec<(PathBuf, u32)> {
         self.files
-            .keys()
-            .filter(|p| p.starts_with(path) && *p != path)
-            .map(|p| p.to_path_buf())
+            .iter()
+            .filter(|(p, _)| p.starts_with(path) && *p != path)
+            .map(|(p, n)| {
+                (
+                    p.to_path_buf(),
+                    match n {
+                        Node::File(ref file) => file.mode,
+                        Node::Dir(ref dir) => dir.mode,
+                    },
+                )
+            })
             .collect()
     }
 
