@@ -50,6 +50,18 @@ macro_rules! test_fs {
 
             make_test!(remove_dir_all_removes_dir_and_contents, $fs);
             make_test!(remove_dir_all_fails_if_node_is_a_file, $fs);
+            #[cfg(unix)]
+            make_test!(
+                remove_dir_all_removes_dir_and_contents_if_descendant_not_writable,
+                $fs
+            );
+            #[cfg(unix)]
+            make_test!(
+                remove_dir_all_removes_dir_and_contents_if_descendant_not_executable,
+                $fs
+            );
+            #[cfg(unix)]
+            make_test!(remove_dir_all_fails_if_descendant_not_readable, $fs);
 
             make_test!(read_dir_returns_dir_entries, $fs);
             make_test!(read_dir_fails_if_node_does_not_exist, $fs);
@@ -322,6 +334,77 @@ fn remove_dir_all_fails_if_node_is_a_file<T: FileSystem>(fs: &T, parent: &Path) 
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
     assert!(fs.is_file(&path));
+}
+
+#[cfg(unix)]
+fn remove_dir_all_removes_dir_and_contents_if_descendant_not_writable<
+    T: FileSystem + UnixFileSystem,
+>(
+    fs: &T,
+    parent: &Path,
+) {
+    let mode = 0o555;
+
+    let path = parent.join("dir");
+    let child = path.join("child");
+
+    fs.create_dir(&path).unwrap();
+    fs.create_dir(&child).unwrap();
+
+    fs.set_mode(&child, mode).unwrap();
+
+    let result = fs.remove_dir_all(&path);
+
+    assert!(result.is_ok());
+    assert!(!fs.is_dir(&path));
+    assert!(!fs.is_dir(&child));
+}
+
+#[cfg(unix)]
+fn remove_dir_all_removes_dir_and_contents_if_descendant_not_executable<
+    T: FileSystem + UnixFileSystem,
+>(
+    fs: &T,
+    parent: &Path,
+) {
+    let mode = 0o666;
+
+    let path = parent.join("dir");
+    let child = path.join("child");
+
+    fs.create_dir(&path).unwrap();
+    fs.create_dir(&child).unwrap();
+
+    fs.set_mode(&child, mode).unwrap();
+
+    let result = fs.remove_dir_all(&path);
+
+    assert!(result.is_ok());
+    assert!(!fs.is_dir(&path));
+    assert!(!fs.is_dir(&child));
+}
+
+#[cfg(unix)]
+fn remove_dir_all_fails_if_descendant_not_readable<T: FileSystem + UnixFileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
+    let mode = 0o333;
+
+    let path = parent.join("dir");
+    let child = path.join("child");
+
+    fs.create_dir(&path).unwrap();
+    fs.create_dir(&child).unwrap();
+
+    fs.set_mode(&child, mode).unwrap();
+
+    let result = fs.remove_dir_all(&path);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::PermissionDenied);
+    assert!(fs.is_dir(&path));
+    assert!(fs.is_dir(&child));
 }
 
 fn read_dir_returns_dir_entries<T: FileSystem>(fs: &T, parent: &Path) {
