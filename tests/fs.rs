@@ -638,7 +638,7 @@ fn copy_file_fails_if_original_file_does_not_exist<T: FileSystem>(fs: &T, parent
     let result = fs.copy_file(&from, &to);
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidInput);
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
     assert!(!fs.is_file(&to));
 }
 
