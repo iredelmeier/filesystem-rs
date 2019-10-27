@@ -1,6 +1,6 @@
 use std::env;
 use std::ffi::{OsStr, OsString};
-use std::io::Result;
+use std::io::{Error, ErrorKind, Result};
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -184,11 +184,11 @@ impl FileSystem for FakeFileSystem {
     }
 
     fn read_file<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>> {
-        self.apply(path.as_ref(), |r, p| r.read_file(p))
+        self.apply_mut(path.as_ref(), |r, p| r.read_file(p))
     }
 
     fn read_file_to_string<P: AsRef<Path>>(&self, path: P) -> Result<String> {
-        self.apply(path.as_ref(), |r, p| r.read_file_to_string(p))
+        self.apply_mut(path.as_ref(), |r, p| r.read_file_to_string(p))
     }
 
     fn read_file_into<P, B>(&self, path: P, mut buf: B) -> Result<usize>
@@ -196,7 +196,7 @@ impl FileSystem for FakeFileSystem {
         P: AsRef<Path>,
         B: AsMut<Vec<u8>>,
     {
-        self.apply(path.as_ref(), |r, p| r.read_file_into(p, buf.as_mut()))
+        self.apply_mut(path.as_ref(), |r, p| r.read_file_into(p, buf.as_mut()))
     }
 
     fn remove_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
@@ -303,4 +303,39 @@ impl TempFileSystem for FakeFileSystem {
 
         self.create_dir_all(&dir.path()).and(Ok(dir))
     }
+}
+
+fn create_error(kind: ErrorKind) -> Error {
+    // Based on private std::io::ErrorKind::as_str()
+    let description = match kind {
+        ErrorKind::NotFound => "entity not found",
+        ErrorKind::PermissionDenied => "permission denied",
+        ErrorKind::ConnectionRefused => "connection refused",
+        ErrorKind::ConnectionReset => "connection reset",
+        ErrorKind::ConnectionAborted => "connection aborted",
+        ErrorKind::NotConnected => "not connected",
+        ErrorKind::AddrInUse => "address in use",
+        ErrorKind::AddrNotAvailable => "address not available",
+        ErrorKind::BrokenPipe => "broken pipe",
+        ErrorKind::AlreadyExists => "entity already exists",
+        ErrorKind::WouldBlock => "operation would block",
+        ErrorKind::InvalidInput => "invalid input parameter",
+        ErrorKind::InvalidData => "invalid data",
+        ErrorKind::TimedOut => "timed out",
+        ErrorKind::WriteZero => "write zero",
+        ErrorKind::Interrupted => "operation interrupted",
+        ErrorKind::Other => "other os error",
+        ErrorKind::UnexpectedEof => "unexpected end of file",
+        _ => "other",
+    };
+
+    Error::new(kind, description)
+}
+
+fn is_readable(mode: u32) -> bool {
+    mode & 0o444 != 0
+}
+
+fn is_writable(mode: u32) -> bool {
+    mode & 0o222 != 0
 }
