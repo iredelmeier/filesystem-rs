@@ -35,11 +35,11 @@ impl Registry {
     }
 
     pub fn is_dir(&self, path: &Path) -> bool {
-        self.files.get(path).map(Node::is_dir).unwrap_or(false)
+        self.get(path).map(Node::is_dir).unwrap_or(false)
     }
 
     pub fn is_file(&self, path: &Path) -> bool {
-        self.files.get(path).map(Node::is_file).unwrap_or(false)
+        self.get(path).map(Node::is_file).unwrap_or(false)
     }
 
     pub fn create_dir(&mut self, path: &Path) -> Result<()> {
@@ -162,128 +162,118 @@ impl Registry {
     }
 
     pub fn rename(&mut self, from: &Path, to: &Path) -> Result<()> {
-        match (self.files.get(from), self.files.get(to)) {
-            (Some(&Node::File(_)), Some(&Node::File(_))) => {
+        match (self.get(from), self.get(to)) {
+            (Ok(&Node::File(_)), Ok(&Node::File(_))) => {
                 self.remove_file(to)?;
                 self.rename_path(from, to.to_path_buf())
             }
-            (Some(&Node::File(_)), None) => self.rename_path(from, to.to_path_buf()),
-            (Some(&Node::Dir(_)), Some(&Node::Dir(_))) if self.descendants(to).is_empty() => {
+            (Ok(&Node::File(_)), Err(ref err)) if err.kind() == ErrorKind::NotFound => {
+                self.rename_path(from, to.to_path_buf())
+            }
+            (Ok(&Node::Dir(_)), Ok(&Node::Dir(_))) if self.descendants(to).is_empty() => {
                 self.remove(to)?;
                 self.move_dir(from, to)
             }
-            (Some(&Node::File(_)), Some(&Node::Dir(_)))
-            | (Some(&Node::Dir(_)), Some(&Node::File(_)))
-            | (Some(&Node::Dir(_)), Some(&Node::Dir(_))) => Err(create_error(ErrorKind::Other)),
-            (Some(&Node::Dir(_)), None) => self.move_dir(from, to),
-            (None, _) => Err(create_error(ErrorKind::NotFound)),
+            (Ok(&Node::File(_)), Ok(&Node::Dir(_)))
+            | (Ok(&Node::Dir(_)), Ok(&Node::File(_)))
+            | (Ok(&Node::Dir(_)), Ok(&Node::Dir(_))) => Err(create_error(ErrorKind::Other)),
+            (Ok(&Node::Dir(_)), Err(ref err)) if err.kind() == ErrorKind::NotFound => {
+                self.move_dir(from, to)
+            }
+            (Err(err), _) => Err(err),
+            (_, Err(err)) => Err(err),
         }
     }
 
     pub fn readonly(&self, path: &Path) -> Result<bool> {
-        match self.files.get(path) {
-            Some(&Node::File(ref f)) => Ok(f.mode & 0o222 == 0),
-            Some(&Node::Dir(ref d)) => Ok(d.mode & 0o222 == 0),
-            None => Err(create_error(ErrorKind::NotFound)),
-        }
+        self.get(path).map(|node| match node {
+            Node::File(ref file) => file.mode & 0o222 == 0,
+            Node::Dir(ref dir) => dir.mode & 0o222 == 0,
+        })
     }
 
     pub fn set_readonly(&mut self, path: &Path, readonly: bool) -> Result<()> {
-        match self.files.get_mut(path) {
-            Some(&mut Node::File(ref mut f)) => {
+        self.get_mut(path).map(|node| match node {
+            Node::File(ref mut file) => {
                 if readonly {
-                    f.mode &= !0o222
+                    file.mode &= !0o222
                 } else {
-                    f.mode |= 0o222
-                };
-
-                Ok(())
+                    file.mode |= 0o222
+                }
             }
-            Some(&mut Node::Dir(ref mut d)) => {
+            Node::Dir(ref mut dir) => {
                 if readonly {
-                    d.mode &= !0o222
+                    dir.mode &= !0o222
                 } else {
-                    d.mode |= 0o222
-                };
-
-                Ok(())
+                    dir.mode |= 0o222
+                }
             }
-            None => Err(create_error(ErrorKind::NotFound)),
-        }
+        })
     }
 
     pub fn mode(&self, path: &Path) -> Result<u32> {
-        match self.files.get(path) {
-            Some(&Node::File(ref f)) => Ok(f.mode),
-            Some(&Node::Dir(ref d)) => Ok(d.mode),
-            None => Err(create_error(ErrorKind::NotFound)),
-        }
+        self.get(path).map(|node| match node {
+            Node::File(ref file) => file.mode,
+            Node::Dir(ref dir) => dir.mode,
+        })
     }
 
     pub fn set_mode(&mut self, path: &Path, mode: u32) -> Result<()> {
-        match self.files.get_mut(path) {
-            Some(&mut Node::File(ref mut f)) => {
-                f.mode = mode;
-                Ok(())
-            }
-            Some(&mut Node::Dir(ref mut d)) => {
-                d.mode = mode;
-                Ok(())
-            }
-            None => Err(create_error(ErrorKind::NotFound)),
-        }
+        self.get_mut(path).map(|node| match node {
+            Node::File(ref mut file) => file.mode = mode,
+            Node::Dir(ref mut dir) => dir.mode = mode,
+        })
     }
 
     pub fn len(&self, path: &Path) -> u64 {
-        match self.files.get(path) {
-            Some(&Node::File(ref f)) => f.contents.len() as u64,
-            Some(&Node::Dir(_)) => 4096,
-            None => 0,
-        }
+        self.get(path)
+            .map(|node| match node {
+                Node::File(ref file) => file.contents.len() as u64,
+                Node::Dir(_) => 4096,
+            })
+            .unwrap_or(0)
+    }
+
+    fn get(&self, path: &Path) -> Result<&Node> {
+        self.files
+            .get(path)
+            .ok_or_else(|| create_error(ErrorKind::NotFound))
+    }
+
+    fn get_mut(&mut self, path: &Path) -> Result<&mut Node> {
+        self.files
+            .get_mut(path)
+            .ok_or_else(|| create_error(ErrorKind::NotFound))
     }
 
     fn get_dir(&self, path: &Path) -> Result<&Dir> {
-        match self.files.get(path) {
-            Some(&Node::Dir(ref dir)) => Ok(dir),
-            Some(_) => Err(create_error(ErrorKind::Other)),
-            None => Err(create_error(ErrorKind::NotFound)),
-        }
+        self.get(path).and_then(|node| match node {
+            Node::Dir(ref dir) => Ok(dir),
+            Node::File(_) => Err(create_error(ErrorKind::Other)),
+        })
     }
 
     fn get_dir_mut(&mut self, path: &Path) -> Result<&mut Dir> {
-        match self.files.get_mut(path) {
-            Some(&mut Node::Dir(ref mut dir)) => {
-                if dir.mode & 0o222 == 0 {
-                    Err(create_error(ErrorKind::PermissionDenied))
-                } else {
-                    Ok(dir)
-                }
-            }
-            Some(_) => Err(create_error(ErrorKind::Other)),
-            None => Err(create_error(ErrorKind::NotFound)),
-        }
+        self.get_mut(path).and_then(|node| match node {
+            Node::Dir(ref mut dir) if dir.mode & 0o222 != 0 => Ok(dir),
+            Node::Dir(_) => Err(create_error(ErrorKind::PermissionDenied)),
+            Node::File(_) => Err(create_error(ErrorKind::Other)),
+        })
     }
 
     fn get_file(&self, path: &Path) -> Result<&File> {
-        match self.files.get(path) {
-            Some(&Node::File(ref file)) => Ok(file),
-            Some(_) => Err(create_error(ErrorKind::Other)),
-            None => Err(create_error(ErrorKind::NotFound)),
-        }
+        self.get(path).and_then(|node| match node {
+            Node::File(ref file) => Ok(file),
+            Node::Dir(_) => Err(create_error(ErrorKind::Other)),
+        })
     }
 
     fn get_file_mut(&mut self, path: &Path) -> Result<&mut File> {
-        match self.files.get_mut(path) {
-            Some(&mut Node::File(ref mut file)) => {
-                if file.mode & 0o222 == 0 {
-                    Err(create_error(ErrorKind::PermissionDenied))
-                } else {
-                    Ok(file)
-                }
-            }
-            Some(_) => Err(create_error(ErrorKind::Other)),
-            None => Err(create_error(ErrorKind::NotFound)),
-        }
+        self.get_mut(path).and_then(|node| match node {
+            Node::File(ref mut file) if file.mode & 0o222 != 0 => Ok(file),
+            Node::File(_) => Err(create_error(ErrorKind::PermissionDenied)),
+            Node::Dir(_) => Err(create_error(ErrorKind::Other)),
+        })
     }
 
     fn insert(&mut self, path: PathBuf, file: Node) -> Result<()> {
