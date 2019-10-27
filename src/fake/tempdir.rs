@@ -23,10 +23,7 @@ impl FakeTempDir {
         let name = format!("{}_{}", prefix, suffix);
         let path = base.join(prefix).join(name);
 
-        FakeTempDir {
-            registry: registry,
-            path: path,
-        }
+        FakeTempDir { registry, path }
     }
 }
 
