@@ -75,7 +75,7 @@ macro_rules! test_fs {
             make_test!(read_file_into_writes_bytes_to_buffer, $fs);
             make_test!(read_file_into_fails_if_file_does_not_exist, $fs);
 
-            make_test!(create_file_writes_writes_to_new_file, $fs);
+            make_test!(create_file_writes_to_new_file, $fs);
             make_test!(create_file_fails_if_file_already_exists, $fs);
 
             make_test!(remove_file_removes_a_file, $fs);
@@ -543,7 +543,7 @@ fn read_file_into_fails_if_file_does_not_exist<T: FileSystem>(fs: &T, parent: &P
     assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
 }
 
-fn create_file_writes_writes_to_new_file<T: FileSystem>(fs: &T, parent: &Path) {
+fn create_file_writes_to_new_file<T: FileSystem>(fs: &T, parent: &Path) {
     let path = parent.join("test_file");
     let result = fs.create_file(&path, "new contents");
 
