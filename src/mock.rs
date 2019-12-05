@@ -1,8 +1,9 @@
 use std::error::Error as StdError;
 use std::ffi::OsString;
-use std::io::{Error, ErrorKind};
+use std::io::{self, Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::vec::IntoIter;
+use std::cmp::min;
 
 use pseudo::Mock;
 
@@ -80,6 +81,33 @@ impl From<FakeError> for Error {
 }
 
 #[derive(Debug, Clone)]
+pub struct OpenFile {
+    contents: Vec<u8>,
+    offset: usize,
+}
+
+impl OpenFile {
+    fn new(contents: Vec<u8>) -> Self {
+        OpenFile {
+            contents,
+            offset: 0,
+        }
+    }
+}
+
+impl io::Read for OpenFile {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let ofs = self.offset;
+        let len = min(self.contents.len() - ofs, buf.len());
+        if len > 0 {
+            buf[..len].copy_from_slice(&self.contents[ofs..ofs+len]);
+            self.offset += len;
+        }
+        Ok(len)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct MockFileSystem {
     pub current_dir: Mock<(), Result<PathBuf, FakeError>>,
     pub set_current_dir: Mock<PathBuf, Result<(), FakeError>>,
@@ -96,6 +124,7 @@ pub struct MockFileSystem {
     pub write_file: Mock<(PathBuf, Vec<u8>), Result<(), FakeError>>,
     pub overwrite_file: Mock<(PathBuf, Vec<u8>), Result<(), FakeError>>,
     pub read_file: Mock<(PathBuf), Result<Vec<u8>, FakeError>>,
+    pub open: Mock<(PathBuf), Result<OpenFile, FakeError>>,
     pub read_file_to_string: Mock<(PathBuf), Result<String, FakeError>>,
     pub read_file_into: Mock<(PathBuf, Vec<u8>), Result<usize, FakeError>>,
     pub create_file: Mock<(PathBuf, Vec<u8>), Result<(), FakeError>>,
@@ -128,6 +157,7 @@ impl MockFileSystem {
             write_file: Mock::new(Ok(())),
             overwrite_file: Mock::new(Ok(())),
             read_file: Mock::new(Ok(vec![])),
+            open: Mock::new(Ok(OpenFile::new(vec![]))),
             read_file_to_string: Mock::new(Ok(String::new())),
             read_file_into: Mock::new(Ok(0)),
             create_file: Mock::new(Ok(())),
@@ -153,6 +183,7 @@ impl Default for MockFileSystem {
 impl FileSystem for MockFileSystem {
     type DirEntry = DirEntry;
     type ReadDir = ReadDir;
+    type OpenFile = OpenFile;
 
     fn current_dir(&self) -> Result<PathBuf, Error> {
         self.current_dir.call(()).map_err(Error::from)
@@ -232,6 +263,12 @@ impl FileSystem for MockFileSystem {
 
     fn read_file<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>, Error> {
         self.read_file
+            .call(path.as_ref().to_path_buf())
+            .map_err(Error::from)
+    }
+
+    fn open<P: AsRef<Path>>(&self, path: P) -> Result<Self::OpenFile, Error> {
+        self.open
             .call(path.as_ref().to_path_buf())
             .map_err(Error::from)
     }
