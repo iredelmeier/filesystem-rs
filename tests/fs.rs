@@ -1,6 +1,6 @@
 extern crate filesystem;
 
-use std::io::ErrorKind;
+use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
 
 #[cfg(unix)]
@@ -86,6 +86,15 @@ macro_rules! test_fs {
 
             make_test!(read_file_into_writes_bytes_to_buffer, $fs);
             make_test!(read_file_into_fails_if_file_does_not_exist, $fs);
+
+            make_test!(read_object_returns_contents_as_bytes, $fs);
+            make_test!(read_object_fails_if_file_does_not_exist, $fs);
+            make_test!(read_object_read_to_end_reads_everything, $fs);
+            make_test!(read_object_respects_eof, $fs);
+            make_test!(read_object_returns_chunked_contents, $fs);
+            make_test!(read_objects_are_independent, $fs);
+            make_test!(read_object_keeps_offset_when_file_changes, $fs);
+            make_test!(read_object_sees_eof_when_file_truncated, $fs);
 
             make_test!(create_file_writes_to_new_file, $fs);
             make_test!(create_file_fails_if_file_already_exists, $fs);
@@ -565,9 +574,126 @@ fn read_file_returns_contents_as_bytes<T: FileSystem>(fs: &T, parent: &Path) {
     assert_eq!(result.unwrap(), br"test text");
 }
 
+fn read_object_returns_contents_as_bytes<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test.txt");
+
+    fs.write_file(&path, "test text").unwrap();
+
+    let mut reader = fs.open(&path).unwrap();
+    let mut buffer = vec![];
+    let result = reader.read_to_end(&mut buffer);
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "test text".len());
+    assert_eq!(buffer, br"test text");
+}
+
+fn read_object_returns_chunked_contents<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test.txt");
+
+    fs.write_file(&path, "test text").unwrap();
+
+    let mut reader = fs.open(path).unwrap();
+
+    fn assert_read_chunk<R: Read>(reader: &mut R, chunk: &[u8]) {
+        let mut buf = vec![0; chunk.len()];
+        let result = reader.read_exact(&mut buf);
+        assert!(result.is_ok());
+        assert_eq!(buf, chunk);
+    }
+
+    assert_read_chunk(&mut reader, b"test ");
+    assert_read_chunk(&mut reader, b"text");
+}
+
+fn read_object_respects_eof<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test.txt");
+
+    let contents = "test text";
+    fs.write_file(&path, contents).unwrap();
+
+    let mut reader = fs.open(path).unwrap();
+
+    let mut buf = vec![];
+    reader.read_to_end(&mut buf).unwrap();
+    let result = reader.read_to_end(&mut buf);
+    assert!(result.is_ok());
+    assert!(result.unwrap() == 0);
+}
+
+fn read_object_read_to_end_reads_everything<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test.txt");
+
+    let contents = "test text";
+    fs.write_file(&path, contents).unwrap();
+
+    let mut reader = fs.open(path).unwrap();
+
+    let mut buf = vec![];
+    let result = reader.read_to_end(&mut buf);
+    assert!(result.is_ok());
+    assert!(result.unwrap() == contents.len());
+    assert!(buf.len() == contents.len());
+}
+
+fn read_objects_are_independent<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test.txt");
+
+    fs.write_file(&path, "test text").unwrap();
+
+    let mut readers = (fs.open(&path).unwrap(), fs.open(&path).unwrap());
+    let buf = vec![0; 5];
+    let mut bufs = (buf.clone(), buf.clone());
+    readers.0.read_exact(&mut bufs.0).unwrap();
+    readers.1.read_exact(&mut bufs.1).unwrap();
+    assert_eq!(bufs.0, bufs.1);
+}
+
+fn read_object_keeps_offset_when_file_changes<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test.txt");
+
+    fs.write_file(&path, "test text").unwrap();
+
+    let mut reader = fs.open(&path).unwrap();
+    let mut buf = vec![0; 5];
+    reader.read_exact(&mut buf).unwrap();
+    assert_eq!(buf, b"test ");
+
+    fs.write_file(&path, "the quick brown fox").unwrap();
+    let mut buf = vec![0; 4];
+    let result = reader.read_exact(&mut buf);
+
+    assert!(result.is_ok());
+    assert_eq!(buf, b"uick");
+}
+
+fn read_object_sees_eof_when_file_truncated<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test.txt");
+
+    fs.write_file(&path, "test text").unwrap();
+
+    let mut reader = fs.open(&path).unwrap();
+    let mut buf = vec![0; 5];
+    reader.read_exact(&mut buf).unwrap();
+    assert_eq!(buf, b"test ");
+
+    fs.write_file(&path, "1").unwrap();
+    let result = reader.read_to_end(&mut buf);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), 0);
+}
+
 fn read_file_fails_if_file_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
     let path = parent.join("test.txt");
     let result = fs.read_file(&path);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
+}
+
+fn read_object_fails_if_file_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("test.txt");
+    let result = fs.open(&path);
 
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
