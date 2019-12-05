@@ -124,8 +124,13 @@ impl Registry {
     }
 
     pub fn read_file(&self, path: &Path) -> Result<Vec<u8>> {
+        self.read_file_ref(path)
+            .map(|c| c.to_vec())
+    }
+
+    pub fn read_file_ref(&self, path: &Path) -> Result<&Vec<u8>> {
         match self.get_file(path) {
-            Ok(f) if f.mode & 0o444 != 0 => Ok(f.contents.clone()),
+            Ok(f) if f.mode & 0o444 != 0 => Ok(&f.contents),
             Ok(_) => Err(create_error(ErrorKind::PermissionDenied)),
             Err(err) => Err(err),
         }
