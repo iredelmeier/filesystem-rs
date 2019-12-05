@@ -1,10 +1,11 @@
 use std::env;
 use std::ffi::{OsStr, OsString};
-use std::io::Result;
+use std::io::{Read, Result};
 use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::vec::IntoIter;
+use std::cmp::min;
 
 use FileSystem;
 #[cfg(unix)]
@@ -108,6 +109,7 @@ impl FakeFileSystem {
 impl FileSystem for FakeFileSystem {
     type DirEntry = DirEntry;
     type ReadDir = ReadDir;
+    type OpenFile = FakeOpenFile;
 
     fn current_dir(&self) -> Result<PathBuf> {
         let registry = self.registry.lock().unwrap();
@@ -187,6 +189,13 @@ impl FileSystem for FakeFileSystem {
         apply(&self.registry, path.as_ref(), |r, p| r.read_file(p))
     }
 
+    fn open<P: AsRef<Path>>(&self, path: P) -> Result<Self::OpenFile> {
+        FakeOpenFile::try_new(
+            &self.registry,
+            path.as_ref()
+        )
+    }
+
     fn read_file_to_string<P: AsRef<Path>>(&self, path: P) -> Result<String> {
         apply(&self.registry, path.as_ref(), |r, p| r.read_file_to_string(p))
     }
@@ -231,6 +240,50 @@ impl FileSystem for FakeFileSystem {
 
     fn len<P: AsRef<Path>>(&self, path: P) -> u64 {
         apply(&self.registry, path.as_ref(), |r, p| r.len(p))
+    }
+}
+
+#[derive(Debug)]
+pub struct FakeOpenFile {
+    registry: Arc<Mutex<Registry>>,
+    path: PathBuf,
+    offset: usize,
+}
+
+impl FakeOpenFile {
+    fn try_new(registry: &Arc<Mutex<Registry>>, path: &Path) -> Result<Self> {
+        apply(registry, path, |r, p| {
+            r.access(p)
+        })
+        .map(|()| FakeOpenFile {
+            registry: registry.clone(),
+            path: path.to_owned(),
+            offset: 0,
+        })
+    }
+}
+
+impl Read for FakeOpenFile {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        apply(&self.registry, self.path.as_ref(), |r, p| {
+            let contents = r.read_file_ref(p)?;
+            let ofs = self.offset;
+            // If the underlying file has shrunk, the offset could
+            // point to beyond eof.
+            let len = if ofs < contents.len() {
+                min(contents.len() - ofs, buf.len())
+            } else {
+                0
+            };
+            if len > 0 {
+                buf[..len].copy_from_slice(&contents[ofs..ofs+len]);
+            }
+            Ok(len)
+        })
+        .map(|len| {
+            self.offset += len;
+            len
+        })
     }
 }
 

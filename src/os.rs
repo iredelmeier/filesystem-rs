@@ -48,6 +48,7 @@ impl OsFileSystem {
 impl FileSystem for OsFileSystem {
     type DirEntry = fs::DirEntry;
     type ReadDir = fs::ReadDir;
+    type OpenFile = File;
 
     fn current_dir(&self) -> Result<PathBuf> {
         env::current_dir()
@@ -110,6 +111,10 @@ impl FileSystem for OsFileSystem {
         file.read_to_end(&mut contents)?;
 
         Ok(contents)
+    }
+
+    fn open<P: AsRef<Path>>(&self, path: P) -> Result<Self::OpenFile> {
+        File::open(path)
     }
 
     fn read_file_into<P, B>(&self, path: P, mut buf: B) -> Result<usize>

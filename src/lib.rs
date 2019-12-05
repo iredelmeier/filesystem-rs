@@ -6,8 +6,9 @@ extern crate rand;
 extern crate tempdir;
 
 use std::ffi::OsString;
-use std::io::Result;
+use std::io::{self, Result};
 use std::path::{Path, PathBuf};
+use std::fmt;
 
 #[cfg(feature = "fake")]
 pub use fake::{FakeFileSystem, FakeTempDir};
@@ -27,6 +28,7 @@ mod os;
 pub trait FileSystem {
     type DirEntry: DirEntry;
     type ReadDir: ReadDir<Self::DirEntry>;
+    type OpenFile: io::Read + fmt::Debug;
 
     /// Returns the current working directory.
     /// This is based on [`std::env::current_dir`].
@@ -112,6 +114,11 @@ pub trait FileSystem {
     /// * `path` is a directory.
     /// * Current user has insufficient permissions.
     fn read_file<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>>;
+    /// Attempts to open a file in read-only mode.
+    ///
+    /// The returned handle implements the `io::Read` trait, so it
+    /// can be used to read the file in a stream-like fashion.
+    fn open<P: AsRef<Path>>(&self, path: P) -> Result<Self::OpenFile>;
     /// Returns the contents of `path` as a string.
     ///
     /// # Errors
