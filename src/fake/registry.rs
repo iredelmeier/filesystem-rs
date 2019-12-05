@@ -223,6 +223,10 @@ impl Registry {
         })
     }
 
+    pub fn access(&self, path: &Path) -> Result<()> {
+        self.get(path).map(|_| {})
+    }
+
     pub fn set_mode(&mut self, path: &Path, mode: u32) -> Result<()> {
         self.get_mut(path).map(|node| match node {
             Node::File(ref mut file) => file.mode = mode,
