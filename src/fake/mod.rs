@@ -28,6 +28,25 @@ pub struct FakeFileSystem {
     registry: Arc<Mutex<Registry>>,
 }
 
+fn apply<F, T>(registry: &Arc<Mutex<Registry>>, path: &Path, f: F) -> T
+where
+    F: FnOnce(&MutexGuard<Registry>, &Path) -> T,
+{
+    let registry = registry.lock().unwrap();
+    let storage;
+    let path = if path.is_relative() {
+        storage = registry
+            .current_dir()
+            .unwrap_or_else(|_| PathBuf::from("/"))
+            .join(path);
+        &storage
+    } else {
+        path
+    };
+
+    f(&registry, path)
+}
+
 impl FakeFileSystem {
     pub fn new() -> Self {
         let registry = Registry::new();
@@ -35,25 +54,6 @@ impl FakeFileSystem {
         FakeFileSystem {
             registry: Arc::new(Mutex::new(registry)),
         }
-    }
-
-    fn apply<F, T>(&self, path: &Path, f: F) -> T
-    where
-        F: FnOnce(&MutexGuard<Registry>, &Path) -> T,
-    {
-        let registry = self.registry.lock().unwrap();
-        let storage;
-        let path = if path.is_relative() {
-            storage = registry
-                .current_dir()
-                .unwrap_or_else(|_| PathBuf::from("/"))
-                .join(path);
-            &storage
-        } else {
-            path
-        };
-
-        f(&registry, path)
     }
 
     fn apply_mut<F, T>(&self, path: &Path, mut f: F) -> T
@@ -119,11 +119,11 @@ impl FileSystem for FakeFileSystem {
     }
 
     fn is_dir<P: AsRef<Path>>(&self, path: P) -> bool {
-        self.apply(path.as_ref(), |r, p| r.is_dir(p))
+        apply(&self.registry, path.as_ref(), |r, p| r.is_dir(p))
     }
 
     fn is_file<P: AsRef<Path>>(&self, path: P) -> bool {
-        self.apply(path.as_ref(), |r, p| r.is_file(p))
+        apply(&self.registry, path.as_ref(), |r, p| r.is_file(p))
     }
 
     fn create_dir<P: AsRef<Path>>(&self, path: P) -> Result<()> {
@@ -145,7 +145,7 @@ impl FileSystem for FakeFileSystem {
     fn read_dir<P: AsRef<Path>>(&self, path: P) -> Result<Self::ReadDir> {
         let path = path.as_ref();
 
-        self.apply(path, |r, p| r.read_dir(p)).map(|entries| {
+        apply(&self.registry, path, |r, p| r.read_dir(p)).map(|entries| {
             let entries = entries
                 .iter()
                 .map(|e| {
@@ -184,11 +184,11 @@ impl FileSystem for FakeFileSystem {
     }
 
     fn read_file<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>> {
-        self.apply(path.as_ref(), |r, p| r.read_file(p))
+        apply(&self.registry, path.as_ref(), |r, p| r.read_file(p))
     }
 
     fn read_file_to_string<P: AsRef<Path>>(&self, path: P) -> Result<String> {
-        self.apply(path.as_ref(), |r, p| r.read_file_to_string(p))
+        apply(&self.registry, path.as_ref(), |r, p| r.read_file_to_string(p))
     }
 
     fn read_file_into<P, B>(&self, path: P, mut buf: B) -> Result<usize>
@@ -196,7 +196,7 @@ impl FileSystem for FakeFileSystem {
         P: AsRef<Path>,
         B: AsMut<Vec<u8>>,
     {
-        self.apply(path.as_ref(), |r, p| r.read_file_into(p, buf.as_mut()))
+        apply(&self.registry, path.as_ref(), |r, p| r.read_file_into(p, buf.as_mut()))
     }
 
     fn remove_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
@@ -222,7 +222,7 @@ impl FileSystem for FakeFileSystem {
     }
 
     fn readonly<P: AsRef<Path>>(&self, path: P) -> Result<bool> {
-        self.apply(path.as_ref(), |r, p| r.readonly(p))
+        apply(&self.registry, path.as_ref(), |r, p| r.readonly(p))
     }
 
     fn set_readonly<P: AsRef<Path>>(&self, path: P, readonly: bool) -> Result<()> {
@@ -230,7 +230,7 @@ impl FileSystem for FakeFileSystem {
     }
 
     fn len<P: AsRef<Path>>(&self, path: P) -> u64 {
-        self.apply(path.as_ref(), |r, p| r.len(p))
+        apply(&self.registry, path.as_ref(), |r, p| r.len(p))
     }
 }
 
@@ -285,7 +285,7 @@ impl crate::ReadDir<DirEntry> for ReadDir {}
 #[cfg(unix)]
 impl UnixFileSystem for FakeFileSystem {
     fn mode<P: AsRef<Path>>(&self, path: P) -> Result<u32> {
-        self.apply(path.as_ref(), |r, p| r.mode(p))
+        apply(&self.registry, path.as_ref(), |r, p| r.mode(p))
     }
 
     fn set_mode<P: AsRef<Path>>(&self, path: P, mode: u32) -> Result<()> {
