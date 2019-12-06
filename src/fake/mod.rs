@@ -299,7 +299,7 @@ impl TempFileSystem for FakeFileSystem {
 
     fn temp_dir<S: AsRef<str>>(&self, prefix: S) -> Result<Self::TempDir> {
         let base = env::temp_dir();
-        let dir = FakeTempDir::new(Arc::downgrade(&self.registry), &base, prefix.as_ref());
+        let dir = FakeTempDir::new(self.registry.clone(), &base, prefix.as_ref());
 
         self.create_dir_all(&dir.path()).and(Ok(dir))
     }

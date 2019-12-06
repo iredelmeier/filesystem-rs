@@ -136,6 +136,7 @@ macro_rules! test_fs {
 
             make_test!(temp_dir_creates_tempdir, $fs);
             make_test!(temp_dir_creates_unique_dir, $fs);
+            make_test!(temp_dir_disappears, $fs);
         }
     };
 }
@@ -1132,4 +1133,20 @@ fn temp_dir_creates_unique_dir<T: FileSystem + TempFileSystem>(fs: &T, _: &Path)
     let second = fs.temp_dir("test").unwrap();
 
     assert_ne!(first.path(), second.path());
+}
+
+fn temp_dir_disappears<T: FileSystem + TempFileSystem>(fs: &T, _: &Path) {
+    let temp_dir = fs.temp_dir("test").unwrap();
+    let temp_dir_path = temp_dir.path().to_path_buf();
+
+    // verify that it's there
+    let result = fs.read_dir(&temp_dir_path);
+    assert!(result.is_ok());
+
+    // drop the temp dir to delete it
+    drop(temp_dir);
+
+    // verify that it's gone
+    let result = fs.read_dir(&temp_dir_path);
+    assert!(result.is_err());
 }
