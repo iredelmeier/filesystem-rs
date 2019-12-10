@@ -32,7 +32,7 @@ default = ["fake", "temp"]
 fake = []
 mock = ["pseudo"]
 temp = ["rand", "tempdir"]
-testing = ["mock", "fake"]
+testing = ["temp", "fake"]
 
 [dependencies]
 pseudo = { version = "^0.1.0", optional = true }
