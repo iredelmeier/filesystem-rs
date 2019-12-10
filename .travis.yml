@@ -6,5 +6,7 @@ rust:
 nofications:
   email: false
 script:
+  - cargo build --no-default-features --features fake
+  - cargo clean
   - cargo build --verbose --all-features
   - cargo test --verbose --all-features
