@@ -1,4 +1,3 @@
-use std::env;
 use std::ffi::{OsStr, OsString};
 use std::io::Result;
 use std::iter::Iterator;
@@ -298,7 +297,7 @@ impl TempFileSystem for FakeFileSystem {
     type TempDir = FakeTempDir;
 
     fn temp_dir<S: AsRef<str>>(&self, prefix: S) -> Result<Self::TempDir> {
-        let base = env::temp_dir();
+        let base = std::env::temp_dir();
         let dir = FakeTempDir::new(Arc::downgrade(&self.registry), &base, prefix.as_ref());
 
         self.create_dir_all(&dir.path()).and(Ok(dir))
