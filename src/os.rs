@@ -11,7 +11,7 @@ use tempdir;
 
 #[cfg(unix)]
 use UnixFileSystem;
-use {DirEntry, FileSystem, ReadDir};
+use {DirEntry, FileSystem, FileType, ReadDir};
 #[cfg(feature = "temp")]
 use {TempDir, TempFileSystem};
 
@@ -178,8 +178,14 @@ impl FileSystem for OsFileSystem {
 }
 
 impl DirEntry for fs::DirEntry {
+    type FileType = fs::FileType;
+
     fn file_name(&self) -> OsString {
         self.file_name()
+    }
+
+    fn file_type(&self) -> Result<Self::FileType> {
+        self.file_type()
     }
 
     fn path(&self) -> PathBuf {
@@ -188,6 +194,20 @@ impl DirEntry for fs::DirEntry {
 }
 
 impl ReadDir<fs::DirEntry> for fs::ReadDir {}
+
+impl FileType for fs::FileType {
+    fn is_dir(&self) -> bool {
+        self.is_dir()
+    }
+
+    fn is_file(&self) -> bool {
+        self.is_file()
+    }
+
+    fn is_symlink(&self) -> bool {
+        self.is_symlink()
+    }
+}
 
 #[cfg(unix)]
 impl UnixFileSystem for OsFileSystem {

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 #[cfg(unix)]
 use filesystem::UnixFileSystem;
-use filesystem::{DirEntry, FakeFileSystem, FileSystem, OsFileSystem, TempDir, TempFileSystem};
+use filesystem::{DirEntry, FakeFileSystem, FileSystem, FileType, OsFileSystem, TempDir, TempFileSystem};
 
 macro_rules! make_test {
     ($test:ident, $fs:expr) => {
@@ -169,6 +169,7 @@ fn is_dir_returns_true_if_node_is_dir<T: FileSystem>(fs: &T, parent: &Path) {
     fs.create_dir(&path).unwrap();
 
     assert!(fs.is_dir(&path));
+    assert!(fs.read_dir(parent).unwrap().next().unwrap().unwrap().file_type().unwrap().is_dir());
 }
 
 fn is_dir_returns_false_if_node_is_file<T: FileSystem>(fs: &T, parent: &Path) {
@@ -177,6 +178,7 @@ fn is_dir_returns_false_if_node_is_file<T: FileSystem>(fs: &T, parent: &Path) {
     fs.create_file(&path, "").unwrap();
 
     assert!(!fs.is_dir(&path));
+    assert!(!fs.read_dir(parent).unwrap().next().unwrap().unwrap().file_type().unwrap().is_dir());
 }
 
 fn is_dir_returns_false_if_node_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
@@ -189,6 +191,7 @@ fn is_file_returns_true_if_node_is_file<T: FileSystem>(fs: &T, parent: &Path) {
     fs.create_file(&path, "").unwrap();
 
     assert!(fs.is_file(&path));
+    assert!(fs.read_dir(parent).unwrap().next().unwrap().unwrap().file_type().unwrap().is_file());
 }
 
 fn is_file_returns_false_if_node_is_dir<T: FileSystem>(fs: &T, parent: &Path) {
@@ -197,6 +200,7 @@ fn is_file_returns_false_if_node_is_dir<T: FileSystem>(fs: &T, parent: &Path) {
     fs.create_dir(&path).unwrap();
 
     assert!(!fs.is_file(&path));
+    assert!(!fs.read_dir(parent).unwrap().next().unwrap().unwrap().file_type().unwrap().is_file());
 }
 
 fn is_file_returns_false_if_node_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
