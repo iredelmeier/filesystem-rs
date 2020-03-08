@@ -30,12 +30,18 @@ impl DirEntry {
 }
 
 impl crate::DirEntry for DirEntry {
+    type FileType = FileType;
+
     fn path(&self) -> PathBuf {
         self.file_name.clone()
     }
 
     fn file_name(&self) -> OsString {
         self.file_name.clone().into_os_string()
+    }
+
+    fn file_type(&self) -> Result<Self::FileType, Error> {
+        Ok(FileType { is_file: self.is_file })
     }
 }
 
@@ -63,6 +69,25 @@ impl Iterator for ReadDir {
 }
 
 impl crate::ReadDir<DirEntry> for ReadDir {}
+
+#[derive(Debug, Clone)]
+pub struct FileType {
+    is_file: bool,
+}
+
+impl crate::FileType for FileType {
+    fn is_dir(&self) -> bool {
+        !self.is_file
+    }
+
+    fn is_file(&self) -> bool {
+        self.is_file
+    }
+
+    fn is_symlink(&self) -> bool {
+        false
+    }
+}
 
 impl From<Error> for FakeError {
     fn from(err: Error) -> Self {

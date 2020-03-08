@@ -145,13 +145,27 @@ impl FileSystem for FakeFileSystem {
     fn read_dir<P: AsRef<Path>>(&self, path: P) -> Result<Self::ReadDir> {
         let path = path.as_ref();
 
-        self.apply(path, |r, p| r.read_dir(p)).map(|entries| {
+        self.apply(path, |r, p| {
+            r.read_dir(p)
+                .map(|entries|
+                    entries
+                        .into_iter()
+                        .map(|e| {
+                            let file_type = FileType {
+                                is_dir: r.is_dir(&e),
+                                is_file: r.is_file(&e),
+                            };
+                            (e, file_type)
+                        })
+                    .collect()
+                )
+        }).map(|entries: Vec<_>| {
             let entries = entries
-                .iter()
-                .map(|e| {
+                .into_iter()
+                .map(|(e, file_type)| {
                     let file_name = e.file_name().unwrap_or_else(|| e.as_os_str());
 
-                    Ok(DirEntry::new(path, &file_name))
+                    Ok(DirEntry::new(path, &file_name, file_type))
                 })
                 .collect();
 
@@ -238,10 +252,11 @@ impl FileSystem for FakeFileSystem {
 pub struct DirEntry {
     parent: PathBuf,
     file_name: OsString,
+    file_type: FileType,
 }
 
 impl DirEntry {
-    fn new<P, S>(parent: P, file_name: S) -> Self
+    fn new<P, S>(parent: P, file_name: S, file_type: FileType) -> Self
     where
         P: AsRef<Path>,
         S: AsRef<OsStr>,
@@ -249,13 +264,20 @@ impl DirEntry {
         DirEntry {
             parent: parent.as_ref().to_path_buf(),
             file_name: file_name.as_ref().to_os_string(),
+            file_type,
         }
     }
 }
 
 impl crate::DirEntry for DirEntry {
+    type FileType = FileType;
+
     fn file_name(&self) -> OsString {
         self.file_name.clone()
+    }
+
+    fn file_type(&self) -> Result<FileType> {
+        Ok(self.file_type.clone())
     }
 
     fn path(&self) -> PathBuf {
@@ -281,6 +303,26 @@ impl Iterator for ReadDir {
 }
 
 impl crate::ReadDir<DirEntry> for ReadDir {}
+
+#[derive(Debug, Clone)]
+pub struct FileType {
+    is_dir: bool,
+    is_file: bool,
+}
+
+impl crate::FileType for FileType {
+    fn is_dir(&self) -> bool {
+        self.is_dir
+    }
+
+    fn is_file(&self) -> bool {
+        self.is_file
+    }
+
+    fn is_symlink(&self) -> bool {
+        false
+    }
+}
 
 #[cfg(unix)]
 impl UnixFileSystem for FakeFileSystem {

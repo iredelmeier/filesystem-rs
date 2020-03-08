@@ -178,11 +178,20 @@ pub trait FileSystem {
 }
 
 pub trait DirEntry {
+    type FileType: FileType;
+
     fn file_name(&self) -> OsString;
+    fn file_type(&self) -> Result<Self::FileType>;
     fn path(&self) -> PathBuf;
 }
 
 pub trait ReadDir<T: DirEntry>: Iterator<Item = Result<T>> {}
+
+pub trait FileType {
+    fn is_dir(&self) -> bool;
+    fn is_file(&self) -> bool;
+    fn is_symlink(&self) -> bool;
+}
 
 #[cfg(unix)]
 pub trait UnixFileSystem {
