@@ -291,6 +291,12 @@ impl UnixFileSystem for FakeFileSystem {
     fn set_mode<P: AsRef<Path>>(&self, path: P, mode: u32) -> Result<()> {
         self.apply_mut(path.as_ref(), |r, p| r.set_mode(p, mode))
     }
+
+    fn symlink<P: AsRef<Path>, Q: AsRef<Path>>(&self, src: P, dst: Q) -> Result<()> {
+        self.apply_mut_from_to(src.as_ref(), dst.as_ref(), |r, src, dst| {
+            r.symlink(src, dst)
+        })
+    }
 }
 
 #[cfg(feature = "temp")]
