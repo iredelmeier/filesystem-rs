@@ -38,7 +38,6 @@ macro_rules! test_fs {
             make_test!(remove_file_deletes_only_dir_symlink, $fs);
             make_test!(remove_file_deletes_only_file_symlink, $fs);
 
-            make_test!(remove_dir_fails_if_node_is_broken_symlink, $fs);
             make_test!(remove_dir_fails_if_node_is_file_symlink, $fs);
             make_test!(remove_dir_fails_if_node_is_dir_symlink, $fs);
             
@@ -253,17 +252,6 @@ fn remove_file_deletes_only_file_symlink<T: UnixFileSystem + FileSystem>(fs: &T,
 
     assert!(fs.is_file(&path));
     assert!(!fs.is_file(&link));
-}
-
-fn remove_dir_fails_if_node_is_broken_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
-    let broken_symlink = parent.join("broken_symlink");
-    let nonexistent_source = parent.join("source");
-    fs.symlink(&nonexistent_source, &broken_symlink).unwrap();
-
-    let result = fs.remove_dir(&broken_symlink);
-
-    assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
 }
 
 fn remove_dir_fails_if_node_is_file_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
@@ -541,11 +529,11 @@ fn rename_renames_a_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Pat
     let from = parent.join("from");
     let to = parent.join("to");
 
-    fs.symlink(parent.join("somefile"), &from).unwrap();
+    fs.symlink(parent.join("some_file"), &from).unwrap();
 
     fs.rename(&from, &to).unwrap();
     
-    let mut entries: Vec<PathBuf> = fs.read_dir(&parent).unwrap().map(|e| e.unwrap().path()).collect();
+    let entries: Vec<PathBuf> = fs.read_dir(&parent).unwrap().map(|e| e.unwrap().path()).collect();
     assert_eq!(1, entries.len());
     assert_eq!(to, entries[0]);
 }
