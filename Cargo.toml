@@ -26,6 +26,10 @@ test = false
 name = "fs"
 required-features = ["fake", "temp"]
 
+[[test]]
+name = "symlink"
+required-features = ["fake", "temp"]
+
 [features]
 default = ["fake", "temp"]
 

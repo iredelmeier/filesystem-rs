@@ -200,6 +200,14 @@ pub trait UnixFileSystem {
     /// * `path` does not exist.
     /// * Current user has insufficient permissions.
     fn set_mode<P: AsRef<Path>>(&self, path: P, mode: u32) -> Result<()>;
+    /// Creates a new symbolic link on the filesystem.
+    ///
+    /// The `dst` path will be a symbolic link pointing to the `src` path.
+    ///
+    /// Based on [`std::os::unix::fs::symlink`].
+    ///
+    /// [`std::os::unix::fs::symlink`]: https://doc.rust-lang.org/std/os/unix/fs/fn.symlink.html
+    fn symlink<P: AsRef<Path>, Q: AsRef<Path>>(&self, src: P, dst: Q) -> Result<()>;
 }
 
 #[cfg(feature = "temp")]

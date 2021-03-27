@@ -1,23 +1,14 @@
 extern crate filesystem;
 
+#[macro_use]
+mod utils;
+
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 #[cfg(unix)]
 use filesystem::UnixFileSystem;
 use filesystem::{DirEntry, FakeFileSystem, FileSystem, OsFileSystem, TempDir, TempFileSystem};
-
-macro_rules! make_test {
-    ($test:ident, $fs:expr) => {
-        #[test]
-        fn $test() {
-            let fs = $fs();
-            let temp_dir = fs.temp_dir("test").unwrap();
-
-            super::$test(&fs, temp_dir.path());
-        }
-    };
-}
 
 macro_rules! test_fs {
     ($name:ident, $fs:expr) => {
@@ -678,7 +669,6 @@ fn remove_file_fails_if_node_is_a_directory<T: FileSystem>(fs: &T, parent: &Path
     let result = fs.remove_file(&path);
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
 }
 
 fn copy_file_copies_a_file<T: FileSystem>(fs: &T, parent: &Path) {

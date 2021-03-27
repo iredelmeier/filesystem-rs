@@ -202,6 +202,9 @@ impl UnixFileSystem for OsFileSystem {
 
         fs::set_permissions(path, permissions)
     }
+    fn symlink<P: AsRef<Path>, Q: AsRef<Path>>(&self, src: P, dst: Q) -> Result<()> {
+        std::os::unix::fs::symlink(src, dst)
+    }
 }
 
 #[cfg(feature = "temp")]

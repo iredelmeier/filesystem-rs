@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{Error, ErrorKind, Result};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
-use super::node::{Dir, File, Node};
+use super::node::{Dir, File, Node, Symlink};
 
 #[derive(Debug, Clone, Default)]
 pub struct Registry {
@@ -35,11 +35,21 @@ impl Registry {
     }
 
     pub fn is_dir(&self, path: &Path) -> bool {
-        self.get(path).map(Node::is_dir).unwrap_or(false)
+        match self.resolve_path(path, true) {
+            Ok(resolved_path) => self.get(&resolved_path)
+                .map(|node| node.is_dir(&self))
+                .unwrap_or(false),
+            Err(_) => false
+        }
     }
 
     pub fn is_file(&self, path: &Path) -> bool {
-        self.get(path).map(Node::is_file).unwrap_or(false)
+        match self.resolve_path(path, true) {
+            Ok(resolved_path) => self.get(&resolved_path)
+                .map(|node| node.is_file(&self))
+                .unwrap_or(false),
+            Err(_) => false
+        }
     }
 
     pub fn create_dir(&mut self, path: &Path) -> Result<()> {
@@ -68,8 +78,9 @@ impl Registry {
     }
 
     pub fn remove_dir(&mut self, path: &Path) -> Result<()> {
-        match self.get_dir(path) {
-            Ok(_) if self.descendants(path).is_empty() => {}
+        let path = &self.resolve_path(path, false)?;
+        match self.get(path) {
+            Ok(Node::Dir(_)) if self.descendants(path).is_empty() => {}
             Ok(_) => return Err(create_error(ErrorKind::Other)),
             Err(e) => return Err(e),
         };
@@ -78,6 +89,7 @@ impl Registry {
     }
 
     pub fn remove_dir_all(&mut self, path: &Path) -> Result<()> {
+        let path = &self.resolve_path(path, false)?;
         self.get_dir_mut(path)?;
 
         let descendants = self.descendants(path);
@@ -95,18 +107,20 @@ impl Registry {
     }
 
     pub fn read_dir(&self, path: &Path) -> Result<Vec<PathBuf>> {
+        let path = &self.resolve_path(path, true)?;
         self.get_dir(path)?;
 
         Ok(self.children(path))
     }
 
     pub fn create_file(&mut self, path: &Path, buf: &[u8]) -> Result<()> {
+        let path = &self.resolve_path(path, true)?;
         let file = File::new(buf.to_vec());
-
         self.insert(path.to_path_buf(), Node::File(file))
     }
 
     pub fn write_file(&mut self, path: &Path, buf: &[u8]) -> Result<()> {
+        let path = &self.resolve_path(path, true)?;
         self.get_file_mut(path)
             .map(|ref mut f| f.contents = buf.to_vec())
             .or_else(|e| {
@@ -119,11 +133,13 @@ impl Registry {
     }
 
     pub fn overwrite_file(&mut self, path: &Path, buf: &[u8]) -> Result<()> {
+        let path = &self.resolve_path(path, true)?;
         self.get_file_mut(path)
             .map(|ref mut f| f.contents = buf.to_vec())
     }
 
     pub fn read_file(&self, path: &Path) -> Result<Vec<u8>> {
+        let path = &self.resolve_path(path, true)?;
         match self.get_file(path) {
             Ok(f) if f.mode & 0o444 != 0 => Ok(f.contents.clone()),
             Ok(_) => Err(create_error(ErrorKind::PermissionDenied)),
@@ -132,6 +148,7 @@ impl Registry {
     }
 
     pub fn read_file_to_string(&self, path: &Path) -> Result<String> {
+        let path = &self.resolve_path(path, true)?;
         match self.read_file(path) {
             Ok(vec) => String::from_utf8(vec).map_err(|_| create_error(ErrorKind::InvalidData)),
             Err(err) => Err(err),
@@ -139,6 +156,7 @@ impl Registry {
     }
 
     pub fn read_file_into(&self, path: &Path, buf: &mut Vec<u8>) -> Result<usize> {
+        let path = &self.resolve_path(path, true)?;
         match self.get_file(path) {
             Ok(f) if f.mode & 0o444 != 0 => {
                 buf.extend(&f.contents);
@@ -150,13 +168,17 @@ impl Registry {
     }
 
     pub fn remove_file(&mut self, path: &Path) -> Result<()> {
-        match self.get_file(path) {
-            Ok(_) => self.remove(path).and(Ok(())),
+        let path = &self.resolve_path(path, false)?;
+        match self.get(path) {
+            Ok(Node::File(_)) | Ok(Node::Symlink(_)) => self.remove(path).and(Ok(())),
+            Ok(Node::Dir(_)) => Err(create_error(ErrorKind::Other)),
             Err(e) => Err(e),
         }
     }
 
     pub fn copy_file(&mut self, from: &Path, to: &Path) -> Result<()> {
+        let from = &self.resolve_path(from, true)?;
+        let to = &self.resolve_path(to, true)?;
         match self.read_file(from) {
             Ok(ref buf) => self.write_file(to, buf),
             Err(ref err) if err.kind() == ErrorKind::Other => {
@@ -166,24 +188,165 @@ impl Registry {
         }
     }
 
+    fn resolve_path(&'_ self, path: &Path, follow_last_component: bool) -> Result<PathBuf> {
+        match self.files.get(path) {
+            Some(Node::File(_)) | Some(Node::Dir(_)) => return Ok(path.to_path_buf()),
+            Some(Node::Symlink(_)) if follow_last_component =>
+                return Ok(self.recurse_symlink(path).map(|(_,p)| p)?),
+            Some(Node::Symlink(_)) => return Ok(path.to_path_buf()),
+            None => ()
+        }
+        let mut pathbuf = PathBuf::new();
+        let count = path.components().count();
+        for (i, component) in path.components().enumerate() {
+            match component {
+                Component::Prefix(prefix) => {
+                    pathbuf.push(Component::Prefix(prefix));
+                    continue;
+                }
+                Component::RootDir => {
+                    pathbuf.push(Component::RootDir);
+                    continue;
+                }
+                Component::Normal(comp) => pathbuf.push(Component::Normal(comp)),
+                Component::CurDir | Component::ParentDir => {
+                    return Err(create_error(ErrorKind::InvalidInput))
+                }
+            }
+
+            match self.files.get(&pathbuf) {
+                Some(Node::File(_)) | Some(Node::Dir(_)) => continue,
+                Some(Node::Symlink(_)) => {
+                    if !follow_last_component && i == count - 1 {
+                        return Ok(pathbuf);
+                    } else {
+                        pathbuf = self
+                            .recurse_symlink(&pathbuf).map(|(_,p)| p)?;
+                    }
+                }
+                None => {
+                    if i == count - 1 {
+                        return Ok(pathbuf);
+                    } else {
+                        return Err(create_error(ErrorKind::NotFound));
+                    }
+                }
+            }
+        }
+        Ok(pathbuf)
+    }
+    fn recurse_symlink<'a>(&'a self, path: &Path) -> Result<(&'a Node, PathBuf)> {
+        let mut traversed_items = HashSet::new();
+        let mut path = path;
+        let mut current = self.files.get(path);
+        while let Some(&Node::Symlink(_)) = current {
+            if traversed_items.contains(path) {
+                return Err(create_error(ErrorKind::Other));
+            }
+            traversed_items.insert(path.to_path_buf());
+            path = if let Node::Symlink(ref link) = current.unwrap() {
+                &link.source
+            } else {
+                path
+            };
+            current = self.files.get(path);
+        }
+        match current {
+            None => Err(create_error(ErrorKind::NotFound)),
+            Some(node) => Ok((&node, path.to_path_buf())),
+        }
+    }
+
     pub fn rename(&mut self, from: &Path, to: &Path) -> Result<()> {
-        match (self.get(from), self.get(to)) {
+        let mut from = from.to_path_buf();
+        match self.resolve_path(&from, false) {
+            Ok(path) => from = path,
+            Err(_) => return Err(create_error(ErrorKind::NotFound))
+        }
+        let mut to = to.to_path_buf();
+        match self.resolve_path(&to, false) {
+            Ok(path) => to = path,
+            Err(_) => return Err(create_error(ErrorKind::NotFound))
+        }
+        match (self.get(&from), self.get(&to)) {
             (Ok(&Node::File(_)), Ok(&Node::File(_))) => {
-                self.remove_file(to)?;
-                self.rename_path(from, to.to_path_buf())
+                self.remove_file(&to)?;
+                self.rename_path(&from, to)
             }
             (Ok(&Node::File(_)), Err(ref err)) if err.kind() == ErrorKind::NotFound => {
-                self.rename_path(from, to.to_path_buf())
+                self.rename_path(&from, to)
             }
-            (Ok(&Node::Dir(_)), Ok(&Node::Dir(_))) if self.descendants(to).is_empty() => {
-                self.remove(to)?;
-                self.move_dir(from, to)
+            (Ok(&Node::Dir(_)), Err(ref err)) if err.kind() == ErrorKind::NotFound => {
+                self.move_dir(&from, &to)
+            }
+            (Ok(&Node::Dir(_)), Ok(&Node::Dir(_))) if self.descendants(&to).is_empty() => {
+                self.remove(&to)?;
+                self.move_dir(&from, &to)
+            }
+            (Ok(&Node::File(_)), Ok(&Node::Symlink(_)))
+                if self.recurse_symlink(&to)?.0.is_file(&self) =>
+            {
+                self.remove(&to)?;
+                self.rename_path(&from, to)
+            }
+            (Ok(&Node::Dir(_)), Ok(&Node::Symlink(_))) => match self.recurse_symlink(&to)? {
+                (Node::Dir(_), path) if self.descendants(&path).is_empty() => {
+                    self.remove(&to)?;
+                    self.move_dir(&from, &to)
+                }
+                _ => Err(create_error(ErrorKind::Other)),
+            },
+            (Ok(&Node::Symlink(_)), Err(ref err)) if err.kind() == ErrorKind::NotFound => {
+                self.rename_path(&from, to)
+            }
+            (Ok(&Node::Symlink(_)), Ok(&Node::File(_)))
+                if self.recurse_symlink(&from)?.0.is_file(&self) =>
+            {
+                self.remove(&to)?;
+                self.rename_path(&from, to)
+            }
+            (Ok(&Node::Symlink(_)), Ok(&Node::Dir(_))) => match self.recurse_symlink(&from)? {
+                (Node::Dir(_), _) if self.descendants(&to).is_empty() => {
+                    self.remove(&to)?;
+                    self.move_dir(&from, &to)
+                }
+                _ => Err(create_error(ErrorKind::Other)),
+            },
+            (Ok(&Node::Symlink(_)), Ok(&Node::Symlink(_))) => {
+                match (self.recurse_symlink(&from), self.recurse_symlink(&to)) {
+                    (Ok(_), Err(e)) if e.kind() == ErrorKind::NotFound => {
+                        self.rename_path(&from, to.to_path_buf())
+                    }
+                    (Err(e), Ok((Node::File(_), _))) if e.kind() == ErrorKind::NotFound => {
+                        self.remove_file(&to)?;
+                        self.rename_path(&from, to)
+                    }
+                    (Err(e), _) => Err(e),
+                    (Ok((Node::File(_), _)), Ok((Node::File(_), _))) => {
+                        self.remove(&to)?;
+                        self.rename_path(&from, to)
+                    }
+                    (Ok((Node::Dir(_), _)), Ok((Node::Dir(_), path))) => {
+                        if self.descendants(&path).is_empty() {
+                            self.remove(&to)?;
+                            self.rename_path(&from, to)
+                        } else {
+                            Err(create_error(ErrorKind::Other))
+                        }
+                    }
+                    (_, Err(_))
+                    | (Ok((Node::File(_), _)), _)
+                    | (Ok((Node::Dir(_), _)), _)
+                    | (Ok((Node::Symlink(_), _)), _) => Err(create_error(ErrorKind::Other)),
+                }
             }
             (Ok(&Node::File(_)), Ok(&Node::Dir(_)))
+            | (Ok(&Node::File(_)), Ok(&Node::Symlink(_)))
+            | (Ok(&Node::Symlink(_)), Ok(&Node::File(_)))
             | (Ok(&Node::Dir(_)), Ok(&Node::File(_)))
             | (Ok(&Node::Dir(_)), Ok(&Node::Dir(_))) => Err(create_error(ErrorKind::Other)),
             (Ok(&Node::Dir(_)), Err(ref err)) if err.kind() == ErrorKind::NotFound => {
-                self.move_dir(from, to)
+                self.move_dir(&from, &to)
             }
             (Err(err), _) => Err(err),
             (_, Err(err)) => Err(err),
@@ -194,24 +357,27 @@ impl Registry {
         self.get(path).map(|node| match node {
             Node::File(ref file) => file.mode & 0o222 == 0,
             Node::Dir(ref dir) => dir.mode & 0o222 == 0,
+            Node::Symlink(ref symlink) => symlink.mode & 0o222 == 0,
         })
     }
 
     pub fn set_readonly(&mut self, path: &Path, readonly: bool) -> Result<()> {
+        fn set_readonly_mode(mode: &mut u32, readonly: bool) {
+            if readonly {
+                *mode &= !0o222
+            } else {
+                *mode |= 0o222
+            }
+        }
         self.get_mut(path).map(|node| match node {
             Node::File(ref mut file) => {
-                if readonly {
-                    file.mode &= !0o222
-                } else {
-                    file.mode |= 0o222
-                }
+                set_readonly_mode(&mut file.mode, readonly);
             }
             Node::Dir(ref mut dir) => {
-                if readonly {
-                    dir.mode &= !0o222
-                } else {
-                    dir.mode |= 0o222
-                }
+                set_readonly_mode(&mut dir.mode, readonly);
+            }
+            Node::Symlink(ref mut link) => {
+                set_readonly_mode(&mut link.mode, readonly);
             }
         })
     }
@@ -220,6 +386,7 @@ impl Registry {
         self.get(path).map(|node| match node {
             Node::File(ref file) => file.mode,
             Node::Dir(ref dir) => dir.mode,
+            Node::Symlink(ref link) => link.mode,
         })
     }
 
@@ -227,6 +394,7 @@ impl Registry {
         self.get_mut(path).map(|node| match node {
             Node::File(ref mut file) => file.mode = mode,
             Node::Dir(ref mut dir) => dir.mode = mode,
+            Node::Symlink(ref mut link) => link.mode = mode,
         })
     }
 
@@ -235,6 +403,7 @@ impl Registry {
             .map(|node| match node {
                 Node::File(ref file) => file.contents.len() as u64,
                 Node::Dir(_) => 4096,
+                Node::Symlink(_) => 34, // This is what it actually is on macOS
             })
             .unwrap_or(0)
     }
@@ -255,39 +424,82 @@ impl Registry {
         self.get(path).and_then(|node| match node {
             Node::Dir(ref dir) => Ok(dir),
             Node::File(_) => Err(create_error(ErrorKind::Other)),
+            Node::Symlink(_) => match self.recurse_symlink(path) {
+                Ok((Node::Dir(dir), _)) => Ok(&dir),
+                Ok((Node::File(_), _)) | Ok((Node::Symlink(_), _)) => {
+                    Err(create_error(ErrorKind::Other))
+                }
+                Err(e) => Err(e),
+            },
         })
     }
 
     fn get_dir_mut(&mut self, path: &Path) -> Result<&mut Dir> {
-        self.get_mut(path).and_then(|node| match node {
-            Node::Dir(ref mut dir) if dir.mode & 0o222 != 0 => Ok(dir),
-            Node::Dir(_) => Err(create_error(ErrorKind::PermissionDenied)),
-            Node::File(_) => Err(create_error(ErrorKind::Other)),
-        })
+        let mut path = path.to_path_buf();
+        match self.get(&path)? {
+            Node::Dir(dir) if dir.mode & 0o222 != 0 => (), // still get the original path
+            Node::Dir(_) => return Err(create_error(ErrorKind::PermissionDenied)),
+            Node::File(_) => return Err(create_error(ErrorKind::Other)),
+            Node::Symlink(_) => match self.recurse_symlink(&path) {
+                Ok((Node::Dir(_), new_path)) => path = new_path,
+                Ok((Node::File(_), _)) | Ok((Node::Symlink(_), _)) => {
+                    return Err(create_error(ErrorKind::Other))
+                }
+                Err(e) => return Err(e),
+            },
+        };
+        if let Ok(Node::Dir(dir)) = self.get_mut(&path) {
+            Ok(dir)
+        } else {
+            Err(create_error(ErrorKind::Other))
+        }
     }
 
     fn get_file(&self, path: &Path) -> Result<&File> {
         self.get(path).and_then(|node| match node {
             Node::File(ref file) => Ok(file),
             Node::Dir(_) => Err(create_error(ErrorKind::Other)),
+            Node::Symlink(_) => match self.recurse_symlink(path) {
+                Ok((Node::File(file), _)) => Ok(&file),
+                Ok((Node::Dir(_), _)) | Ok((Node::Symlink(_), _)) => {
+                    Err(create_error(ErrorKind::Other))
+                }
+                Err(e) => Err(e),
+            },
         })
     }
 
     fn get_file_mut(&mut self, path: &Path) -> Result<&mut File> {
-        self.get_mut(path).and_then(|node| match node {
-            Node::File(ref mut file) if file.mode & 0o222 != 0 => Ok(file),
-            Node::File(_) => Err(create_error(ErrorKind::PermissionDenied)),
-            Node::Dir(_) => Err(create_error(ErrorKind::Other)),
-        })
+        let mut path = path.to_path_buf();
+        match self.get(&path)? {
+            Node::File(file) if file.mode & 0o222 != 0 => (), // still get the original path
+            Node::File(_) => return Err(create_error(ErrorKind::PermissionDenied)),
+            Node::Dir(_) => return Err(create_error(ErrorKind::Other)),
+            Node::Symlink(_) => match self.recurse_symlink(&path) {
+                Ok((Node::File(_), new_path)) => path = new_path,
+                Ok((Node::Dir(_), _)) | Ok((Node::Symlink(_), _)) => {
+                    return Err(create_error(ErrorKind::Other))
+                }
+                Err(e) => return Err(e),
+            },
+        };
+        if let Ok(Node::File(file)) = self.get_mut(&path) {
+            Ok(file)
+        } else {
+            Err(create_error(ErrorKind::Other))
+        }
     }
 
     fn insert(&mut self, path: PathBuf, file: Node) -> Result<()> {
-        if self.files.contains_key(&path) {
-            return Err(create_error(ErrorKind::AlreadyExists));
-        } else if let Some(p) = path.parent() {
-            self.get_dir_mut(p)?;
-        }
-
+        let path = self.resolve_path(&path, false)?;
+        if self.files.get(&path).is_some() {
+            return Err(create_error(ErrorKind::AlreadyExists))
+        } 
+        let parent: &Path = &path.parent().ok_or_else(|| create_error(ErrorKind::Other))?;
+        match self.files.get(parent) {
+            Some(Node::Dir(_)) => self.get_dir_mut(parent)?,
+            None|Some(_) => return Err(create_error(ErrorKind::Other))
+        };
         self.files.insert(path, file);
 
         Ok(())
@@ -301,7 +513,15 @@ impl Registry {
     }
 
     fn descendants(&self, path: &Path) -> Vec<(PathBuf, u32)> {
-        self.files
+        let mut pathbuf = path.to_path_buf();
+        if let Ok(Node::Symlink(_)) = self.get(&path) {
+            if let Ok((_, new_path)) = self.recurse_symlink(&path) {
+                pathbuf = new_path;
+            }
+        }
+        let path = &pathbuf;
+        let mut descendants: Vec<(PathBuf, u32)> = self
+            .files
             .iter()
             .filter(|(p, _)| p.starts_with(path) && *p != path)
             .map(|(p, n)| {
@@ -310,10 +530,26 @@ impl Registry {
                     match n {
                         Node::File(ref file) => file.mode,
                         Node::Dir(ref dir) => dir.mode,
+                        Node::Symlink(ref link) => link.mode,
                     },
                 )
             })
-            .collect()
+            .collect();
+        let mut found_symlink = true;
+        let mut list = descendants.clone();
+        while found_symlink {
+            found_symlink = false;
+            let mut new_list = Vec::new();
+            for (p, _) in list {
+                if let Some(Node::Symlink(_)) = self.files.get(&p) {
+                    found_symlink = true;
+                    new_list.extend(self.descendants(&p));
+                }
+            }
+            descendants.extend(new_list.iter().cloned());
+            list = new_list;
+        }
+        descendants
     }
 
     fn children(&self, path: &Path) -> Vec<PathBuf> {
@@ -340,6 +576,28 @@ impl Registry {
         }
 
         Ok(())
+    }
+
+    pub fn symlink(&mut self, src: &Path, dst: &Path) -> Result<()> {
+        if self.get(dst).is_ok() {
+            return Err(create_error(ErrorKind::AlreadyExists));
+        }
+        let parent = if let Some(parent) = dst.parent() {
+            parent
+        } else {
+            return Err(create_error(ErrorKind::NotFound));
+        };
+        match self.readonly(parent) {
+            Ok(true) => Err(create_error(ErrorKind::PermissionDenied)),
+            Ok(false) => {
+                self.files.insert(
+                    PathBuf::from(dst),
+                    Node::Symlink(Symlink::new(PathBuf::from(src))),
+                );
+                Ok(())
+            }
+            Err(_) => Err(create_error(ErrorKind::NotFound)),
+        }
     }
 }
 
