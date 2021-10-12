@@ -1,3 +1,5 @@
+#![feature(io_error_more)]
+
 #[cfg(any(feature = "mock", test))]
 extern crate pseudo;
 #[cfg(feature = "temp")]

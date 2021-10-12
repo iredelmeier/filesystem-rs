@@ -1,5 +1,6 @@
+#![feature(io_error_more)]
 #![cfg(unix)]
-///! This file contains tests for the symlink functionality. Since it's only supported on 
+///! This file contains tests for the symlink functionality. Since it's only supported on
 ///! objects that implement the `UnixFileSystem` trait, this whole file is restricted to
 ///! the Unix configuration.
 extern crate filesystem;
@@ -8,7 +9,7 @@ extern crate filesystem;
 mod utils;
 
 use std::io::ErrorKind;
-use std::path::{PathBuf,Path};
+use std::path::{Path, PathBuf};
 
 use filesystem::UnixFileSystem;
 use filesystem::{DirEntry, FakeFileSystem, FileSystem, OsFileSystem, TempDir, TempFileSystem};
@@ -25,6 +26,7 @@ macro_rules! test_fs {
             make_test!(is_dir_returns_false_if_node_is_file_symlink, $fs);
             make_test!(is_dir_returns_false_if_node_is_broken_symlink, $fs);
 
+            make_test!(get_symlink_src_returns_path_if_node_is_file_symlink, $fs);
             make_test!(is_file_returns_true_if_node_is_file_symlink, $fs);
             make_test!(is_file_returns_false_if_node_is_dir, $fs);
             make_test!(is_file_returns_false_if_node_is_broken_symlink, $fs);
@@ -32,7 +34,10 @@ macro_rules! test_fs {
             make_test!(symlink_fails_if_something_already_exists, $fs);
             make_test!(create_dir_fails_if_parent_is_broken_symlink, $fs);
 
-            make_test!(create_dir_and_create_file_succeed_inside_symlink_source, $fs);
+            make_test!(
+                create_dir_and_create_file_succeed_inside_symlink_source,
+                $fs
+            );
             make_test!(create_dir_and_create_file_fail_in_file_symlink, $fs);
 
             make_test!(remove_file_deletes_only_dir_symlink, $fs);
@@ -40,7 +45,6 @@ macro_rules! test_fs {
 
             make_test!(remove_dir_fails_if_node_is_file_symlink, $fs);
             make_test!(remove_dir_fails_if_node_is_dir_symlink, $fs);
-            
             make_test!(remove_dir_inside_symlink_works, $fs);
             make_test!(remove_dir_all_inside_symlink_works, $fs);
             make_test!(remove_file_inside_symlink_works, $fs);
@@ -48,21 +52,23 @@ macro_rules! test_fs {
             make_test!(read_dir_fails_if_node_is_broken_symlink, $fs);
 
             make_test!(write_file_writes_to_new_file_inside_symlink, $fs);
-            make_test!(write_file_overwrites_contents_of_existing_file_inside_symlink, $fs);
+            make_test!(
+                write_file_overwrites_contents_of_existing_file_inside_symlink,
+                $fs
+            );
             make_test!(write_file_overwrites_contents_of_symlink_source_file, $fs);
 
             make_test!(read_file_returns_symlink_source_contents, $fs);
             make_test!(read_file_works_inside_symlink, $fs);
             make_test!(read_file_fails_if_node_is_broken_symlink, $fs);
-            
             make_test!(create_file_writes_to_new_file_inside_symlink, $fs);
-            
             make_test!(copy_file_copies_a_file_from_symlink, $fs);
             make_test!(copy_file_copies_a_file_from_inside_symlink, $fs);
             make_test!(copy_file_copies_a_file_to_inside_symlink, $fs);
             make_test!(copy_file_fails_if_original_file_is_broken_symlink, $fs);
 
-            make_test!(rename_renames_a_symlink, $fs);        }
+            make_test!(rename_renames_a_symlink, $fs);
+        }
     };
 }
 
@@ -71,52 +77,65 @@ test_fs!(os, OsFileSystem::new);
 #[cfg(unix)]
 test_fs!(fake, FakeFileSystem::new);
 
-fn set_current_dir_fails_if_node_is_broken_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
-  let path = parent.join("file");
-  let link_path = parent.join("file_link");
+fn set_current_dir_fails_if_node_is_broken_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
+    let path = parent.join("file");
+    let link_path = parent.join("file_link");
 
-  fs.symlink(&path, &link_path).unwrap();
+    fs.symlink(&path, &link_path).unwrap();
 
-  let result = fs.set_current_dir(&link_path);
+    let result = fs.set_current_dir(&link_path);
 
-  assert!(result.is_err());
-  assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
 }
 
-fn set_current_dir_fails_if_node_is_file_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
-  let path = parent.join("file");
-  fs.create_file(&path, "").unwrap();
-  
-  let link_path = parent.join("file_link");
-  fs.symlink(&path, &link_path).unwrap();
+fn set_current_dir_fails_if_node_is_file_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
+    let path = parent.join("file");
+    fs.create_file(&path, "").unwrap();
 
-  let result = fs.set_current_dir(&link_path);
+    let link_path = parent.join("file_link");
+    fs.symlink(&path, &link_path).unwrap();
 
-  assert!(result.is_err());
-  assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
+    let result = fs.set_current_dir(&link_path);
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotADirectory);
 }
 
-fn is_dir_returns_true_if_node_is_dir_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn is_dir_returns_true_if_node_is_dir_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let path = parent.join("new_dir");
     fs.create_dir(&path).unwrap();
-    
     let link_path = parent.join("link");
     fs.symlink(&path, &link_path).unwrap();
 
     assert!(fs.is_dir(&link_path));
 }
 
-fn is_dir_returns_false_if_node_is_file_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn is_dir_returns_false_if_node_is_file_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let path = parent.join("new_file");
     fs.create_file(&path, "").unwrap();
-    
     let link_path = parent.join("link");
     fs.symlink(&path, &link_path).unwrap();
 
     assert!(!fs.is_dir(&link_path));
 }
 
-fn is_dir_returns_false_if_node_is_broken_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn is_dir_returns_false_if_node_is_broken_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let path = parent.join("new_dir");
     let link_path = parent.join("link");
 
@@ -125,15 +144,32 @@ fn is_dir_returns_false_if_node_is_broken_symlink<T: UnixFileSystem + FileSystem
     assert!(!fs.is_dir(parent.join("link")));
 }
 
-fn is_file_returns_true_if_node_is_file_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn is_file_returns_true_if_node_is_file_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let path = parent.join("new_file");
 
     fs.create_file(&path, "").unwrap();
-    
     let link_path = parent.join("link");
     fs.symlink(&path, &link_path).unwrap();
 
     assert!(fs.is_file(&link_path));
+}
+
+fn get_symlink_src_returns_path_if_node_is_file_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
+    let path = parent.join("new_file");
+
+    fs.create_file(&path, "").unwrap();
+    let link_path = parent.join("link");
+    fs.symlink(&path, &link_path).unwrap();
+
+    let result = fs.get_symlink_src(&link_path).unwrap();
+
+    assert!(result == path);
 }
 
 fn is_file_returns_false_if_node_is_dir<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
@@ -147,14 +183,20 @@ fn is_file_returns_false_if_node_is_dir<T: UnixFileSystem + FileSystem>(fs: &T, 
     assert!(!fs.is_file(&link_path));
 }
 
-fn is_file_returns_false_if_node_is_broken_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn is_file_returns_false_if_node_is_broken_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let link_path = parent.join("link");
     fs.symlink(parent.join("404"), &link_path).unwrap();
 
     assert!(!fs.is_file(&link_path));
 }
 
-fn symlink_fails_if_something_already_exists<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn symlink_fails_if_something_already_exists<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let file_path = parent.join("file");
     let dir_path = parent.join("dir");
     let symlink_file_path = parent.join("symlink_file");
@@ -166,17 +208,41 @@ fn symlink_fails_if_something_already_exists<T: UnixFileSystem + FileSystem>(fs:
     fs.create_file(&file_path, "").unwrap();
     fs.symlink(&dir_path, &symlink_dir_path).unwrap();
     fs.symlink(&file_path, &symlink_file_path).unwrap();
-    fs.symlink(&parent.join("404"), &symlink_broken_path).unwrap();
+    fs.symlink(&parent.join("404"), &symlink_broken_path)
+        .unwrap();
 
-    let used_paths = [&file_path, &dir_path, &symlink_dir_path, &symlink_broken_path, &symlink_file_path];
+    let used_paths = [
+        &file_path,
+        &dir_path,
+        &symlink_dir_path,
+        &symlink_broken_path,
+        &symlink_file_path,
+    ];
+
+    for path in [&file_path, &dir_path].iter() {
+        let result = fs.get_symlink_src(&path);
+        assert!(
+            result.is_err(),
+            "Could get symlink source for something that isn't a symlink {:?}",
+            &path
+        );
+        assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidInput);
+    }
     for path in used_paths.iter() {
-        let result = fs.symlink(&dummy_path, path);
-        assert!(result.is_err(), "Could create symlink {:?}, that contained another dir/file/symlink", path);
+        let result = fs.symlink(&dummy_path, &path);
+        assert!(
+            result.is_err(),
+            "Could create symlink {:?}, that contained another dir/file/symlink",
+            &path
+        );
         assert_eq!(result.unwrap_err().kind(), ErrorKind::AlreadyExists);
     }
 }
 
-fn create_dir_fails_if_parent_is_broken_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn create_dir_fails_if_parent_is_broken_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let path = parent.join("parent/new_dir");
     let link_path = parent.join("parent");
     fs.symlink(parent.join("404"), &link_path).unwrap();
@@ -187,14 +253,16 @@ fn create_dir_fails_if_parent_is_broken_symlink<T: UnixFileSystem + FileSystem>(
     assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
 }
 
-fn create_dir_and_create_file_succeed_inside_symlink_source<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn create_dir_and_create_file_succeed_inside_symlink_source<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let dir_path = parent.join("link/new_dir");
     let file_path = parent.join("link/file_dir");
     let link_path = parent.join("link");
     let source_path = parent.join("real_dir");
     let real_dir_path = parent.join("real_dir/new_dir");
     let real_file_path = parent.join("real_dir/new_dir");
-    
     fs.create_dir(&source_path).unwrap();
 
     fs.symlink(&source_path, &link_path).unwrap();
@@ -206,7 +274,10 @@ fn create_dir_and_create_file_succeed_inside_symlink_source<T: UnixFileSystem + 
     assert!(fs.is_dir(real_file_path));
 }
 
-fn create_dir_and_create_file_fail_in_file_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn create_dir_and_create_file_fail_in_file_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let dir_path = parent.join("link/new_dir");
     let file_path = parent.join("link/file");
     let link_path = parent.join("link");
@@ -216,11 +287,10 @@ fn create_dir_and_create_file_fail_in_file_symlink<T: UnixFileSystem + FileSyste
 
     let result = fs.create_dir(&dir_path);
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
-    
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotADirectory);
     let result = fs.create_file(&file_path, "");
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotADirectory);
 }
 
 fn remove_file_deletes_only_dir_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
@@ -264,7 +334,7 @@ fn remove_dir_fails_if_node_is_file_symlink<T: UnixFileSystem + FileSystem>(fs: 
     let result = fs.remove_dir(&symlink);
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotADirectory);
     assert!(fs.is_file(&symlink));
 }
 
@@ -279,7 +349,7 @@ fn remove_dir_fails_if_node_is_dir_symlink<T: UnixFileSystem + FileSystem>(fs: &
     let result = fs.remove_dir(&symlink);
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
+    assert_eq!(result.unwrap_err().kind(), ErrorKind::NotADirectory);
     assert!(fs.is_dir(&symlink));
 }
 
@@ -349,7 +419,10 @@ fn read_dir_fails_if_node_is_broken_symlink<T: UnixFileSystem + FileSystem>(fs: 
     }
 }
 
-fn write_file_writes_to_new_file_inside_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn write_file_writes_to_new_file_inside_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let dir = parent.join("dir");
     let link = parent.join("link");
     let file = link.join("file");
@@ -362,10 +435,18 @@ fn write_file_writes_to_new_file_inside_symlink<T: UnixFileSystem + FileSystem>(
     assert!(fs.is_file(&file));
     assert!(fs.is_file(&real_file));
 
-    assert_eq!(fs.read_file_to_string(&file).unwrap(), fs.read_file_to_string(&real_file).unwrap());
+    assert_eq!(
+        fs.read_file_to_string(&file).unwrap(),
+        fs.read_file_to_string(&real_file).unwrap()
+    );
 }
 
-fn write_file_overwrites_contents_of_existing_file_inside_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn write_file_overwrites_contents_of_existing_file_inside_symlink<
+    T: UnixFileSystem + FileSystem,
+>(
+    fs: &T,
+    parent: &Path,
+) {
     let dir = parent.join("dir");
     let link = parent.join("link");
     let file = link.join("file");
@@ -384,7 +465,10 @@ fn write_file_overwrites_contents_of_existing_file_inside_symlink<T: UnixFileSys
     assert_eq!(contents, fs.read_file_to_string(&file).unwrap());
 }
 
-fn write_file_overwrites_contents_of_symlink_source_file<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn write_file_overwrites_contents_of_symlink_source_file<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let link = parent.join("link");
     let file = parent.join("file");
     let contents = "some random content";
@@ -400,7 +484,10 @@ fn write_file_overwrites_contents_of_symlink_source_file<T: UnixFileSystem + Fil
     assert_eq!(contents, fs.read_file_to_string(&link).unwrap());
 }
 
-fn read_file_returns_symlink_source_contents<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn read_file_returns_symlink_source_contents<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let file = parent.join("test.txt");
     let link = parent.join("link");
 
@@ -435,18 +522,23 @@ fn read_file_works_inside_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent
     assert_eq!(contents, fs.read_file_to_string(&linked_file).unwrap());
 }
 
-fn read_file_fails_if_node_is_broken_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn read_file_fails_if_node_is_broken_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let link = parent.join("test.txt");
 
     fs.symlink(parent.join("file"), &link).unwrap();
-    
     let result = fs.read_file(&link);
 
     assert!(result.is_err());
     assert_eq!(result.unwrap_err().kind(), ErrorKind::NotFound);
 }
 
-fn create_file_writes_to_new_file_inside_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn create_file_writes_to_new_file_inside_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let dir = parent.join("dir");
     let link = parent.join("link");
     let file = link.join("file");
@@ -459,7 +551,10 @@ fn create_file_writes_to_new_file_inside_symlink<T: UnixFileSystem + FileSystem>
     assert!(fs.is_file(&file));
     assert!(fs.is_file(&real_file));
 
-    assert_eq!(fs.read_file_to_string(&file).unwrap(), fs.read_file_to_string(&real_file).unwrap());
+    assert_eq!(
+        fs.read_file_to_string(&file).unwrap(),
+        fs.read_file_to_string(&real_file).unwrap()
+    );
 }
 
 fn copy_file_copies_a_file_from_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
@@ -477,7 +572,10 @@ fn copy_file_copies_a_file_from_symlink<T: UnixFileSystem + FileSystem>(fs: &T, 
     assert_eq!(contents, fs.read_file_to_string(&to).unwrap());
 }
 
-fn copy_file_copies_a_file_from_inside_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn copy_file_copies_a_file_from_inside_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let dir = parent.join("dir");
     let link = parent.join("link");
     let file = dir.join("file");
@@ -495,7 +593,10 @@ fn copy_file_copies_a_file_from_inside_symlink<T: UnixFileSystem + FileSystem>(f
     assert_eq!(contents, fs.read_file_to_string(&to).unwrap());
 }
 
-fn copy_file_copies_a_file_to_inside_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn copy_file_copies_a_file_to_inside_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let dir = parent.join("dir");
     let link = parent.join("link");
     let from = parent.join("file");
@@ -514,7 +615,10 @@ fn copy_file_copies_a_file_to_inside_symlink<T: UnixFileSystem + FileSystem>(fs:
     assert_eq!(contents, fs.read_file_to_string(&dir.join("file")).unwrap());
 }
 
-fn copy_file_fails_if_original_file_is_broken_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Path) {
+fn copy_file_fails_if_original_file_is_broken_symlink<T: UnixFileSystem + FileSystem>(
+    fs: &T,
+    parent: &Path,
+) {
     let from = parent.join("from");
     let to = parent.join("to");
 
@@ -532,8 +636,12 @@ fn rename_renames_a_symlink<T: UnixFileSystem + FileSystem>(fs: &T, parent: &Pat
     fs.symlink(parent.join("some_file"), &from).unwrap();
 
     fs.rename(&from, &to).unwrap();
-    
-    let entries: Vec<PathBuf> = fs.read_dir(&parent).unwrap().map(|e| e.unwrap().path()).collect();
+
+    let entries: Vec<PathBuf> = fs
+        .read_dir(&parent)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .collect();
     assert_eq!(1, entries.len());
     assert_eq!(to, entries[0]);
 }

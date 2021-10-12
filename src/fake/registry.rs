@@ -36,19 +36,21 @@ impl Registry {
 
     pub fn is_dir(&self, path: &Path) -> bool {
         match self.resolve_path(path, true) {
-            Ok(resolved_path) => self.get(&resolved_path)
+            Ok(resolved_path) => self
+                .get(&resolved_path)
                 .map(|node| node.is_dir(&self))
                 .unwrap_or(false),
-            Err(_) => false
+            Err(_) => false,
         }
     }
 
     pub fn is_file(&self, path: &Path) -> bool {
         match self.resolve_path(path, true) {
-            Ok(resolved_path) => self.get(&resolved_path)
+            Ok(resolved_path) => self
+                .get(&resolved_path)
                 .map(|node| node.is_file(&self))
                 .unwrap_or(false),
-            Err(_) => false
+            Err(_) => false,
         }
     }
 
@@ -81,7 +83,7 @@ impl Registry {
         let path = &self.resolve_path(path, false)?;
         match self.get(path) {
             Ok(Node::Dir(_)) if self.descendants(path).is_empty() => {}
-            Ok(_) => return Err(create_error(ErrorKind::Other)),
+            Ok(_) => return Err(create_error(ErrorKind::NotADirectory)),
             Err(e) => return Err(e),
         };
 
@@ -188,13 +190,23 @@ impl Registry {
         }
     }
 
+    pub fn read_link<P: AsRef<Path>>(&'_ self, dst: P) -> Result<PathBuf> {
+        let path = self.resolve_path(dst.as_ref(), false)?;
+        match self.files.get(&path) {
+            Some(Node::Symlink(link)) => Ok(link.source.to_path_buf()),
+            Some(_) => Err(create_error(ErrorKind::InvalidInput)),
+            None => Err(create_error(ErrorKind::NotFound)),
+        }
+    }
+
     fn resolve_path(&'_ self, path: &Path, follow_last_component: bool) -> Result<PathBuf> {
         match self.files.get(path) {
             Some(Node::File(_)) | Some(Node::Dir(_)) => return Ok(path.to_path_buf()),
-            Some(Node::Symlink(_)) if follow_last_component =>
-                return Ok(self.recurse_symlink(path).map(|(_,p)| p)?),
+            Some(Node::Symlink(_)) if follow_last_component => {
+                return Ok(self.recurse_symlink(path).map(|(_, p)| p)?)
+            }
             Some(Node::Symlink(_)) => return Ok(path.to_path_buf()),
-            None => ()
+            None => (),
         }
         let mut pathbuf = PathBuf::new();
         let count = path.components().count();
@@ -220,8 +232,7 @@ impl Registry {
                     if !follow_last_component && i == count - 1 {
                         return Ok(pathbuf);
                     } else {
-                        pathbuf = self
-                            .recurse_symlink(&pathbuf).map(|(_,p)| p)?;
+                        pathbuf = self.recurse_symlink(&pathbuf).map(|(_, p)| p)?;
                     }
                 }
                 None => {
@@ -261,12 +272,12 @@ impl Registry {
         let mut from = from.to_path_buf();
         match self.resolve_path(&from, false) {
             Ok(path) => from = path,
-            Err(_) => return Err(create_error(ErrorKind::NotFound))
+            Err(_) => return Err(create_error(ErrorKind::NotFound)),
         }
         let mut to = to.to_path_buf();
         match self.resolve_path(&to, false) {
             Ok(path) => to = path,
-            Err(_) => return Err(create_error(ErrorKind::NotFound))
+            Err(_) => return Err(create_error(ErrorKind::NotFound)),
         }
         match (self.get(&from), self.get(&to)) {
             (Ok(&Node::File(_)), Ok(&Node::File(_))) => {
@@ -423,11 +434,11 @@ impl Registry {
     fn get_dir(&self, path: &Path) -> Result<&Dir> {
         self.get(path).and_then(|node| match node {
             Node::Dir(ref dir) => Ok(dir),
-            Node::File(_) => Err(create_error(ErrorKind::Other)),
+            Node::File(_) => Err(create_error(ErrorKind::NotADirectory)),
             Node::Symlink(_) => match self.recurse_symlink(path) {
                 Ok((Node::Dir(dir), _)) => Ok(&dir),
                 Ok((Node::File(_), _)) | Ok((Node::Symlink(_), _)) => {
-                    Err(create_error(ErrorKind::Other))
+                    Err(create_error(ErrorKind::NotADirectory))
                 }
                 Err(e) => Err(e),
             },
@@ -493,12 +504,14 @@ impl Registry {
     fn insert(&mut self, path: PathBuf, file: Node) -> Result<()> {
         let path = self.resolve_path(&path, false)?;
         if self.files.get(&path).is_some() {
-            return Err(create_error(ErrorKind::AlreadyExists))
-        } 
-        let parent: &Path = &path.parent().ok_or_else(|| create_error(ErrorKind::Other))?;
+            return Err(create_error(ErrorKind::AlreadyExists));
+        }
+        let parent: &Path = &path
+            .parent()
+            .ok_or_else(|| create_error(ErrorKind::NotADirectory))?;
         match self.files.get(parent) {
             Some(Node::Dir(_)) => self.get_dir_mut(parent)?,
-            None|Some(_) => return Err(create_error(ErrorKind::Other))
+            None | Some(_) => return Err(create_error(ErrorKind::NotADirectory)),
         };
         self.files.insert(path, file);
 
