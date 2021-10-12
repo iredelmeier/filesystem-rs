@@ -83,6 +83,7 @@ impl Registry {
         let path = &self.resolve_path(path, false)?;
         match self.get(path) {
             Ok(Node::Dir(_)) if self.descendants(path).is_empty() => {}
+            Ok(Node::Dir(_)) => return Err(create_error(ErrorKind::DirectoryNotEmpty)),
             Ok(_) => return Err(create_error(ErrorKind::NotADirectory)),
             Err(e) => return Err(e),
         };
@@ -171,23 +172,26 @@ impl Registry {
 
     pub fn remove_file(&mut self, path: &Path) -> Result<()> {
         let path = &self.resolve_path(path, false)?;
-        match self.get(path) {
-            Ok(Node::File(_)) | Ok(Node::Symlink(_)) => self.remove(path).and(Ok(())),
-            Ok(Node::Dir(_)) => Err(create_error(ErrorKind::Other)),
-            Err(e) => Err(e),
+        match self.get(path)? {
+            Node::File(_) | Node::Symlink(_) => self.remove(path).and(Ok(())),
+            Node::Dir(_) => Err(create_error(ErrorKind::Other)),
+            
         }
     }
 
     pub fn copy_file(&mut self, from: &Path, to: &Path) -> Result<()> {
         let from = &self.resolve_path(from, true)?;
         let to = &self.resolve_path(to, true)?;
-        match self.read_file(from) {
-            Ok(ref buf) => self.write_file(to, buf),
-            Err(ref err) if err.kind() == ErrorKind::Other => {
-                Err(create_error(ErrorKind::InvalidInput))
-            }
-            Err(err) => Err(err),
+        match (self.read_file(from), self.get(to)) {
+            (Ok(ref buf), Err(e)) if e.kind() == ErrorKind::NotFound => self.write_file(to, buf),
+            (Ok(ref buf),Ok(Node::File(f))) if f.mode != 644 => self.write_file(to, buf),
+            (Ok(ref buf),Ok(Node::Symlink(l))) if l.mode != 644 => self.write_file(to, buf),
+            (Ok(_),Ok(Node::Symlink(_))|Ok(Node::File(_)))  => Err(create_error(ErrorKind::PermissionDenied)),
+            (Ok(_), _) => Err(create_error(ErrorKind::IsADirectory)),
+            (Err(e), _) if e.kind() == ErrorKind::IsADirectory => Err(create_error(ErrorKind::InvalidInput)),
+            (Err(e), _) => Err(e)
         }
+        
     }
 
     pub fn read_link<P: AsRef<Path>>(&'_ self, dst: P) -> Result<PathBuf> {
@@ -352,10 +356,10 @@ impl Registry {
                 }
             }
             (Ok(&Node::File(_)), Ok(&Node::Dir(_)))
-            | (Ok(&Node::File(_)), Ok(&Node::Symlink(_)))
-            | (Ok(&Node::Symlink(_)), Ok(&Node::File(_)))
-            | (Ok(&Node::Dir(_)), Ok(&Node::File(_)))
-            | (Ok(&Node::Dir(_)), Ok(&Node::Dir(_))) => Err(create_error(ErrorKind::Other)),
+            | (Ok(&Node::File(_)), Ok(&Node::Symlink(_))) => Err(create_error(ErrorKind::IsADirectory)),
+            (Ok(&Node::Dir(_)), Ok(&Node::File(_)))
+            | (Ok(&Node::Symlink(_)), Ok(&Node::File(_))) => Err(create_error(ErrorKind::NotADirectory)),
+            (Ok(&Node::Dir(_)), Ok(&Node::Dir(_))) => Err(create_error(ErrorKind::Other)),
             (Ok(&Node::Dir(_)), Err(ref err)) if err.kind() == ErrorKind::NotFound => {
                 self.move_dir(&from, &to)
             }
@@ -450,11 +454,11 @@ impl Registry {
         match self.get(&path)? {
             Node::Dir(dir) if dir.mode & 0o222 != 0 => (), // still get the original path
             Node::Dir(_) => return Err(create_error(ErrorKind::PermissionDenied)),
-            Node::File(_) => return Err(create_error(ErrorKind::Other)),
+            Node::File(_) => return Err(create_error(ErrorKind::NotADirectory)),
             Node::Symlink(_) => match self.recurse_symlink(&path) {
                 Ok((Node::Dir(_), new_path)) => path = new_path,
                 Ok((Node::File(_), _)) | Ok((Node::Symlink(_), _)) => {
-                    return Err(create_error(ErrorKind::Other))
+                    return Err(create_error(ErrorKind::NotADirectory))
                 }
                 Err(e) => return Err(e),
             },
@@ -469,11 +473,11 @@ impl Registry {
     fn get_file(&self, path: &Path) -> Result<&File> {
         self.get(path).and_then(|node| match node {
             Node::File(ref file) => Ok(file),
-            Node::Dir(_) => Err(create_error(ErrorKind::Other)),
+            Node::Dir(_) => Err(create_error(ErrorKind::IsADirectory)),
             Node::Symlink(_) => match self.recurse_symlink(path) {
                 Ok((Node::File(file), _)) => Ok(&file),
                 Ok((Node::Dir(_), _)) | Ok((Node::Symlink(_), _)) => {
-                    Err(create_error(ErrorKind::Other))
+                    Err(create_error(ErrorKind::IsADirectory))
                 }
                 Err(e) => Err(e),
             },
@@ -485,19 +489,20 @@ impl Registry {
         match self.get(&path)? {
             Node::File(file) if file.mode & 0o222 != 0 => (), // still get the original path
             Node::File(_) => return Err(create_error(ErrorKind::PermissionDenied)),
-            Node::Dir(_) => return Err(create_error(ErrorKind::Other)),
+            Node::Dir(_) => return Err(create_error(ErrorKind::IsADirectory)),
             Node::Symlink(_) => match self.recurse_symlink(&path) {
                 Ok((Node::File(_), new_path)) => path = new_path,
                 Ok((Node::Dir(_), _)) | Ok((Node::Symlink(_), _)) => {
-                    return Err(create_error(ErrorKind::Other))
+                    return Err(create_error(ErrorKind::IsADirectory))
                 }
                 Err(e) => return Err(e),
             },
         };
-        if let Ok(Node::File(file)) = self.get_mut(&path) {
-            Ok(file)
-        } else {
-            Err(create_error(ErrorKind::Other))
+        match self.get_mut(&path) {
+            Ok(Node::File(file)) => Ok(file),
+            Ok(Node::Dir(_)) => Err(create_error(ErrorKind::IsADirectory)),
+            Ok(Node::Symlink(_)) => Err(create_error(ErrorKind::Other)),
+            Err(e) => Err(e)
         }
     }
 
