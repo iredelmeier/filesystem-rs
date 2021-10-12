@@ -210,8 +210,9 @@ pub trait UnixFileSystem {
     ///
     /// [`std::os::unix::fs::symlink`]: https://doc.rust-lang.org/std/os/unix/fs/fn.symlink.html
     fn symlink<P: AsRef<Path>, Q: AsRef<Path>>(&self, src: P, dst: Q) -> Result<()>;
-
-    ///
+    /// Gets the source for a symlink.
+    /// 
+    /// Based on [`std::fs::read_link`]
     fn get_symlink_src<P: AsRef<Path>>(&self, dst: P) -> Result<PathBuf>;
 }
 
