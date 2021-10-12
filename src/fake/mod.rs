@@ -297,6 +297,10 @@ impl UnixFileSystem for FakeFileSystem {
             r.symlink(src, dst)
         })
     }
+
+    fn get_symlink_src<P: AsRef<Path>>(&self, dst: P) -> Result<PathBuf> {
+        return self.apply(dst.as_ref(), |r, p| r.read_link(p));
+    }
 }
 
 #[cfg(feature = "temp")]

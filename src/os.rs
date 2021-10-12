@@ -205,6 +205,10 @@ impl UnixFileSystem for OsFileSystem {
     fn symlink<P: AsRef<Path>, Q: AsRef<Path>>(&self, src: P, dst: Q) -> Result<()> {
         std::os::unix::fs::symlink(src, dst)
     }
+
+    fn get_symlink_src<P: AsRef<Path>>(&self, dst: P) -> Result<PathBuf> {
+        std::fs::read_link(dst)
+    }
 }
 
 #[cfg(feature = "temp")]
