@@ -1,0 +1,47 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.0.1
+    hooks:
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-toml
+      - id: check-vcs-permalinks
+      - id: check-yaml
+      - id: destroyed-symlinks
+      - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+      - id: sort-simple-yaml
+      - id: trailing-whitespace
+      - id: trailing-whitespace
+  - repo: https://github.com/jumanjihouse/pre-commit-hooks
+    rev: 2.1.5
+    hooks:
+      - id: forbid-binary
+      - id: git-dirty
+      - id: markdownlint
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.1.10
+    hooks:
+      - id: forbid-tabs
+      - id: remove-tabs
+        args: ["--whitespaces-count", "2"]
+      - id: insert-license
+        files: \.rs$
+        args:
+          - --comment-style
+          - //
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      - id: fmt
+      - id: cargo-check
+        args: ["--target=x86_64-apple-darwin", "--all-targets"]
+      - id: cargo-check
+        args: ["--all-targets"]
+      - id: clippy
+        args: ["--target=x86_64-apple-darwin", "--all-targets"]
+      - id: clippy
+        args: ["--all-targets"]

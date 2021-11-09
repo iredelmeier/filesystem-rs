@@ -1,3 +1,24 @@
+// Copyright (c) 2017 Isobel Redelmeier
+// Copyright (c) 2021 Miguel Barreto
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 use std::collections::{HashMap, HashSet};
 use std::io::{Error, ErrorKind, Result};
 use std::path::{Component, Path, PathBuf};
@@ -175,7 +196,6 @@ impl Registry {
         match self.get(path)? {
             Node::File(_) | Node::Symlink(_) => self.remove(path).and(Ok(())),
             Node::Dir(_) => Err(create_error(ErrorKind::Other)),
-            
         }
     }
 
@@ -184,14 +204,17 @@ impl Registry {
         let to = &self.resolve_path(to, true)?;
         match (self.read_file(from), self.get(to)) {
             (Ok(ref buf), Err(e)) if e.kind() == ErrorKind::NotFound => self.write_file(to, buf),
-            (Ok(ref buf),Ok(Node::File(f))) if f.mode != 644 => self.write_file(to, buf),
-            (Ok(ref buf),Ok(Node::Symlink(l))) if l.mode != 644 => self.write_file(to, buf),
-            (Ok(_),Ok(Node::Symlink(_))|Ok(Node::File(_)))  => Err(create_error(ErrorKind::PermissionDenied)),
+            (Ok(ref buf), Ok(Node::File(f))) if f.mode != 644 => self.write_file(to, buf),
+            (Ok(ref buf), Ok(Node::Symlink(l))) if l.mode != 644 => self.write_file(to, buf),
+            (Ok(_), Ok(Node::Symlink(_)) | Ok(Node::File(_))) => {
+                Err(create_error(ErrorKind::PermissionDenied))
+            }
             (Ok(_), _) => Err(create_error(ErrorKind::IsADirectory)),
-            (Err(e), _) if e.kind() == ErrorKind::IsADirectory => Err(create_error(ErrorKind::InvalidInput)),
-            (Err(e), _) => Err(e)
+            (Err(e), _) if e.kind() == ErrorKind::IsADirectory => {
+                Err(create_error(ErrorKind::InvalidInput))
+            }
+            (Err(e), _) => Err(e),
         }
-        
     }
 
     pub fn read_link<P: AsRef<Path>>(&'_ self, dst: P) -> Result<PathBuf> {
@@ -356,9 +379,13 @@ impl Registry {
                 }
             }
             (Ok(&Node::File(_)), Ok(&Node::Dir(_)))
-            | (Ok(&Node::File(_)), Ok(&Node::Symlink(_))) => Err(create_error(ErrorKind::IsADirectory)),
+            | (Ok(&Node::File(_)), Ok(&Node::Symlink(_))) => {
+                Err(create_error(ErrorKind::IsADirectory))
+            }
             (Ok(&Node::Dir(_)), Ok(&Node::File(_)))
-            | (Ok(&Node::Symlink(_)), Ok(&Node::File(_))) => Err(create_error(ErrorKind::NotADirectory)),
+            | (Ok(&Node::Symlink(_)), Ok(&Node::File(_))) => {
+                Err(create_error(ErrorKind::NotADirectory))
+            }
             (Ok(&Node::Dir(_)), Ok(&Node::Dir(_))) => Err(create_error(ErrorKind::Other)),
             (Ok(&Node::Dir(_)), Err(ref err)) if err.kind() == ErrorKind::NotFound => {
                 self.move_dir(&from, &to)
@@ -502,7 +529,7 @@ impl Registry {
             Ok(Node::File(file)) => Ok(file),
             Ok(Node::Dir(_)) => Err(create_error(ErrorKind::IsADirectory)),
             Ok(Node::Symlink(_)) => Err(create_error(ErrorKind::Other)),
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 
