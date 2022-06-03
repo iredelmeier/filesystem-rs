@@ -126,6 +126,10 @@ impl FileSystem for FakeFileSystem {
         self.apply(path.as_ref(), |r, p| r.is_file(p))
     }
 
+    fn exists<P: AsRef<Path>>(&self, path: P) -> bool {
+        self.apply(path.as_ref(), |r, p| r.exists(p))
+    }
+
     fn create_dir<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         self.apply_mut(path.as_ref(), |r, p| r.create_dir(p))
     }

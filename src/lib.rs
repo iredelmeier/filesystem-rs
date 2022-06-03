@@ -44,6 +44,8 @@ pub trait FileSystem {
     /// Determines whether the path exists and points to a file.
     fn is_file<P: AsRef<Path>>(&self, path: P) -> bool;
 
+    fn exists<P: AsRef<Path>>(&self, path: P) -> bool;
+
     /// Creates a new directory.
     /// This is based on [`std::fs::create_dir`].
     ///
