@@ -35,6 +35,10 @@ macro_rules! test_fs {
             make_test!(is_file_returns_false_if_node_is_dir, $fs);
             make_test!(is_file_returns_false_if_node_does_not_exist, $fs);
 
+            make_test!(exists_returns_true_if_node_is_file, $fs);
+            make_test!(exists_returns_true_if_node_is_directory, $fs);
+            make_test!(exists_returns_false_if_node_does_not_exist, $fs);
+
             make_test!(create_dir_creates_new_dir, $fs);
             make_test!(create_dir_fails_if_dir_already_exists, $fs);
             make_test!(create_dir_fails_if_parent_does_not_exist, $fs);
@@ -201,6 +205,26 @@ fn is_file_returns_false_if_node_is_dir<T: FileSystem>(fs: &T, parent: &Path) {
 
 fn is_file_returns_false_if_node_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
     assert!(!fs.is_file(parent.join("does_not_exist")));
+}
+
+fn exists_returns_false_if_node_does_not_exist<T: FileSystem>(fs: &T, parent: &Path) {
+    assert!(!fs.exists(parent.join("does_not_exist")));
+}
+
+fn exists_returns_true_if_node_is_file<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("new_file");
+
+    fs.create_dir(&path).unwrap();
+
+    assert!(fs.exists(&path));
+}
+
+fn exists_returns_true_if_node_is_directory<T: FileSystem>(fs: &T, parent: &Path) {
+    let path = parent.join("new_dir");
+
+    fs.create_dir(&path).unwrap();
+
+    assert!(fs.exists(&path));
 }
 
 fn create_dir_creates_new_dir<T: FileSystem>(fs: &T, parent: &Path) {

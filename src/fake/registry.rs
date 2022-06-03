@@ -42,6 +42,10 @@ impl Registry {
         self.get(path).map(Node::is_file).unwrap_or(false)
     }
 
+    pub fn exists(&self, path: &Path) -> bool {
+        self.get(path).and(Ok(true)).unwrap_or(false)
+    }
+
     pub fn create_dir(&mut self, path: &Path) -> Result<()> {
         self.insert(path.to_path_buf(), Node::Dir(Dir::new()))
     }

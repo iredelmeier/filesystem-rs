@@ -65,6 +65,10 @@ impl FileSystem for OsFileSystem {
         path.as_ref().is_file()
     }
 
+    fn exists<P: AsRef<Path>>(&self, path: P) -> bool {
+        path.as_ref().exists()
+    }
+
     fn create_dir<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         fs::create_dir(path)
     }
