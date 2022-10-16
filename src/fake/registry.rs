@@ -25,10 +25,16 @@ use std::path::{Component, Path, PathBuf};
 
 use super::node::{Dir, File, Node, Symlink};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Registry {
     cwd: PathBuf,
     files: HashMap<PathBuf, Node>,
+}
+
+impl Default for Registry {
+    fn default() -> Self {
+        Registry::new()
+    }
 }
 
 impl Registry {

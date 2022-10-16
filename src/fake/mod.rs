@@ -48,7 +48,6 @@ mod tempdir;
 pub struct FakeFileSystem {
     registry: Arc<Mutex<Registry>>,
 }
-
 impl FakeFileSystem {
     pub fn new() -> Self {
         let registry = Registry::new();
