@@ -31,17 +31,16 @@ default = ["fake", "temp"]
 
 fake = []
 mock = ["pseudo"]
-temp = ["rand", "tempdir"]
+temp = ["rand", "tempfile"]
 testing = ["mock", "fake"]
 
 [dependencies]
 pseudo = { version = "^0.1.0", optional = true }
 rand = { version = "^0.4", optional = true }
-tempdir = { version = "^0.3", optional = true }
+tempfile = { version = "^3.5.0", optional = true }
 
 [dev-dependencies]
 pseudo = "^0.1.0"
-tempdir = "^0.3"
 
 [badges]
 travis-ci = { repository = "iredelmeier/filesystem-rs" }
