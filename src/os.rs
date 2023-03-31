@@ -7,7 +7,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 #[cfg(feature = "temp")]
-use tempdir;
+use tempfile;
 
 #[cfg(unix)]
 use UnixFileSystem;
@@ -22,7 +22,7 @@ use {TempDir, TempFileSystem};
 /// [`TempDir`]: https://doc.rust-lang.org/tempdir/tempdir/struct.TempDir.html
 #[cfg(feature = "temp")]
 #[derive(Debug)]
-pub struct OsTempDir(tempdir::TempDir);
+pub struct OsTempDir(tempfile::TempDir);
 
 #[cfg(feature = "temp")]
 impl TempDir for OsTempDir {
@@ -209,7 +209,10 @@ impl TempFileSystem for OsFileSystem {
     type TempDir = OsTempDir;
 
     fn temp_dir<S: AsRef<str>>(&self, prefix: S) -> Result<Self::TempDir> {
-        tempdir::TempDir::new(prefix.as_ref()).map(OsTempDir)
+        tempfile::Builder::new()
+            .prefix(prefix.as_ref())
+            .tempdir()
+            .map(OsTempDir)
     }
 }
 

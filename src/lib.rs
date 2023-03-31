@@ -3,7 +3,7 @@ extern crate pseudo;
 #[cfg(feature = "temp")]
 extern crate rand;
 #[cfg(feature = "temp")]
-extern crate tempdir;
+extern crate tempfile;
 
 use std::ffi::OsString;
 use std::io::Result;
