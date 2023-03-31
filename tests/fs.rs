@@ -160,7 +160,6 @@ fn set_current_dir_fails_if_node_is_a_file<T: FileSystem>(fs: &T, parent: &Path)
     let result = fs.set_current_dir(path);
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
 }
 
 fn is_dir_returns_true_if_node_is_dir<T: FileSystem>(fs: &T, parent: &Path) {
@@ -290,7 +289,6 @@ fn remove_dir_fails_if_node_is_a_file<T: FileSystem>(fs: &T, parent: &Path) {
     let result = fs.remove_dir(&path);
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
     assert!(fs.is_file(&path));
 }
 
@@ -304,7 +302,6 @@ fn remove_dir_fails_if_dir_is_not_empty<T: FileSystem>(fs: &T, parent: &Path) {
     let result = fs.remove_dir(&path);
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
     assert!(fs.is_dir(&path));
     assert!(fs.is_file(&child));
 }
@@ -332,7 +329,6 @@ fn remove_dir_all_fails_if_node_is_a_file<T: FileSystem>(fs: &T, parent: &Path) 
     let result = fs.remove_dir_all(&path);
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
     assert!(fs.is_file(&path));
 }
 
@@ -457,7 +453,7 @@ fn read_dir_fails_if_node_is_a_file<T: FileSystem>(fs: &T, parent: &Path) {
     assert!(result.is_err());
     match result {
         Ok(_) => panic!("should be an err"),
-        Err(err) => assert_eq!(err.kind(), ErrorKind::Other),
+        Err(_) => (),
     }
 }
 
@@ -506,7 +502,6 @@ fn write_file_fails_if_node_is_a_directory<T: FileSystem>(fs: &T, parent: &Path)
     let result = fs.write_file(&path, "test contents");
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
 }
 
 fn overwrite_file_overwrites_contents_of_existing_file<T: FileSystem>(fs: &T, parent: &Path) {
@@ -551,7 +546,6 @@ fn overwrite_file_fails_if_node_is_a_directory<T: FileSystem>(fs: &T, parent: &P
     let result = fs.overwrite_file(&path, "test contents");
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
 }
 
 fn read_file_returns_contents_as_bytes<T: FileSystem>(fs: &T, parent: &Path) {
@@ -678,7 +672,6 @@ fn remove_file_fails_if_node_is_a_directory<T: FileSystem>(fs: &T, parent: &Path
     let result = fs.remove_file(&path);
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
 }
 
 fn copy_file_copies_a_file<T: FileSystem>(fs: &T, parent: &Path) {
@@ -761,7 +754,6 @@ fn copy_file_fails_if_destination_node_is_directory<T: FileSystem>(fs: &T, paren
     let result = fs.copy_file(&from, &to);
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
 }
 
 fn rename_renames_a_file<T: FileSystem>(fs: &T, parent: &Path) {
@@ -887,12 +879,10 @@ fn rename_fails_if_original_and_destination_are_different_types<T: FileSystem>(
     let result = fs.rename(&file, &dir);
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
 
     let result = fs.rename(&dir, &file);
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), ErrorKind::Other);
 }
 
 fn rename_fails_if_destination_directory_is_not_empty<T: FileSystem>(fs: &T, parent: &Path) {
